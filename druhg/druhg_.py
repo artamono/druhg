@@ -607,11 +607,17 @@ class DRUHG(BaseEstimator, ClusterMixin):
 
     def revisualize(self, min_samples):
         self.min_samples = min_samples
-        return _tree_to_labels(self._single_linkage_tree,
+        
+        (self.labels_,
+         self.probabilities_,
+         self.cluster_persistence_,
+         self._condensed_tree,
+         self._single_linkage_tree) = _tree_to_labels(self._single_linkage_tree,
                                self.min_samples,
                                self.cluster_selection_method,
                                self.allow_single_cluster,
                                self.match_reference_implementation)
+        return self
         # return (labels, probabilities, stabilities, condensed_tree,
         #         single_linkage_tree)
 
