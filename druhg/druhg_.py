@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 DRUHG: Density Ranking Universal Hierarchical Grouping
+metric space with even subjective ranking distances
 """
 
 import numpy as np
@@ -17,19 +18,18 @@ from sklearn.externals.joblib.parallel import cpu_count
 
 from scipy.sparse import csgraph
 
-from ._hdbscan_linkage import (single_linkage,
-                               mst_linkage_core,
-                               mst_linkage_core_vector,
-                               label)
+from ._druhg_linkage import (single_linkage,
+                             mst_linkage_core,
+                             label)
 from ._hdbscan_tree import (condense_tree,
-                          compute_stability,
-                          get_clusters,
-                          outlier_scores)
+                            compute_stability,
+                            get_clusters,
+                            outlier_scores)
 
-from ._druhg_even_rankability import even_rankability #, sparse_mutual_rankability)
+from ._druhg_even_rankability import even_rankability  # , sparse_mutual_rankability)
 
 from ._druhg_boruvka import KDTreeBoruvkaAlgorithm, BallTreeBoruvkaAlgorithm
-
+from ._druhg_prims import MSTPrimsAlgorithm
 
 from .dist_metrics import DistanceMetric
 
@@ -45,7 +45,6 @@ FAST_METRICS = (KDTree.valid_metrics + BallTree.valid_metrics +
 # License: BSD 3 clause
 from numpy import isclose
 
-
 def _tree_to_labels(single_linkage_tree,
                     min_samples,
                     cluster_selection_method='eom',
@@ -54,7 +53,7 @@ def _tree_to_labels(single_linkage_tree,
     """Converts a pretrained tree and cluster size into a
     set of labels and probabilities.
     """
-    print 'min_samples for condensed tree', min_samples
+    print ('min_samples for condensed tree', min_samples)
 
     condensed_tree = condense_tree(single_linkage_tree, min_samples)
 
@@ -70,9 +69,8 @@ def _tree_to_labels(single_linkage_tree,
 
 
 def _druhg_generic(X, alpha=1.0, metric='minkowski', p=2,
-                     min_ranking=0, run_times=1,
-                     leaf_size=None, gen_min_span_tree=False, **kwargs):
-
+                   max_ranking=0, min_ranking=1, run_times=1,
+                   leaf_size=None, gen_min_span_tree=False, **kwargs):
     if metric == 'minkowski':
         distance_matrix = pairwise_distances(X, metric=metric, p=p)
     elif metric == 'arccos':
@@ -95,14 +93,15 @@ def _druhg_generic(X, alpha=1.0, metric='minkowski', p=2,
     #                                            **kwargs)
     size = distance_matrix.shape[0]
 
-    print 'generic-'+metric+ '. min_ranking',min_ranking,'  size: ', str(size), ' edges: ', str(size*(size-1)/2)#, 'diff_edges: ', str(len(np.unique(distance_matrix)))
+    print ('generic-' + metric + '. min_ranking', min_ranking, '  size: ', str(size), ' edges: ', str(
+        size * (size - 1) / 2))  # , 'diff_edges: ', str(len(np.unique(distance_matrix)))
 
-    even_rankability_, net_ranks = even_rankability(distance_matrix, min_flatting=min_ranking)
+    even_rankability_, net_ranks = even_rankability(distance_matrix, min_flatting=min_ranking, max_neighbors_search=max_ranking)
 
-    print 'run:', str(1), ' ranks_pushed:', str(net_ranks) #, 'diff_edges: ', str(len(np.unique(even_rankability_)))
+    print ('run:', str(1), ' ranks_pushed:', str(net_ranks))  # , 'diff_edges: ', str(len(np.unique(even_rankability_)))
 
     if run_times > 1:
-        print 'run_times planned:' + str(run_times)
+        print ('run_times planned:' + str(run_times))
         i = 1
         rank = 1
         while ((run_times - 1 != 0) and (rank != 0)):
@@ -110,9 +109,10 @@ def _druhg_generic(X, alpha=1.0, metric='minkowski', p=2,
             net_ranks += rank
             run_times -= 1
             i += 1
-            print 'run:', str(i), ' ranks_pushed:', str(rank) #, 'diff_edges: ', str(len(np.unique(even_rankability_)))
+            print ('run:', str(i), ' ranks_pushed:', str(
+                rank))  # , 'diff_edges: ', str(len(np.unique(even_rankability_)))
             # print even_rankability_.round(2)
-        print 'total run_times:', str(i)
+        print ('total run_times:', str(i))
 
     min_spanning_tree = mst_linkage_core(even_rankability_)
 
@@ -148,6 +148,7 @@ def _druhg_generic(X, alpha=1.0, metric='minkowski', p=2,
     single_linkage_tree = label(min_spanning_tree)
 
     return single_linkage_tree, result_min_span_tree, net_ranks
+
 
 #
 # def _druhg_sparse_distance_matrix(X, min_samples=5, alpha=1.0,
@@ -191,7 +192,7 @@ def _druhg_generic(X, alpha=1.0, metric='minkowski', p=2,
 #         return single_linkage_tree, None
 #
 
-def _druhg_boruvka_kdtree(X, max_ranking=16, min_ranking=0, alpha=1.0,
+def _druhg_boruvka_kdtree(X, max_ranking=16, min_ranking=1, alpha=1.0,
                           metric='minkowski', p=2, leaf_size=40,
                           approx_min_span_tree=True,
                           gen_min_span_tree=False,
@@ -205,12 +206,13 @@ def _druhg_boruvka_kdtree(X, max_ranking=16, min_ranking=0, alpha=1.0,
     if X.dtype != np.float64:
         X = X.astype(np.float64)
 
-    print 'boruvka_kdtree-'+ metric +' size:', str(len(X)), ' edges:', str(
-        len(X) * (len(X) - 1) / 2), ' max_ranking:', max_ranking, ' min_ranking:', min_ranking  # , 'diff_edges: ', str(len(np.unique(distance_matrix)))
+    print ('boruvka_kdtree-' + metric + ' size:', str(len(X)), ' edges:', str(
+        len(X) * (len(
+            X) - 1) / 2), ' max_ranking:', max_ranking, ' min_ranking:', min_ranking)  # , 'diff_edges: ', str(len(np.unique(distance_matrix)))
 
     tree = KDTree(X, metric=metric, leaf_size=leaf_size, **kwargs)
     # todo: count pushed edges
-    alg = KDTreeBoruvkaAlgorithm(tree, max_neighbors_search = max_ranking, min_flatting = min_ranking, metric=metric,
+    alg = KDTreeBoruvkaAlgorithm(tree, max_neighbors_search=max_ranking, min_flatting=min_ranking, metric=metric,
                                  leaf_size=leaf_size // 3,
                                  approx_min_span_tree=approx_min_span_tree,
                                  n_jobs=core_dist_n_jobs, **kwargs)
@@ -227,12 +229,11 @@ def _druhg_boruvka_kdtree(X, max_ranking=16, min_ranking=0, alpha=1.0,
         return single_linkage_tree, None
 
 
-def _druhg_boruvka_balltree(X, max_ranking=16, min_ranking=0, alpha=1.0,
+def _druhg_boruvka_balltree(X, max_ranking=16, min_ranking=1, alpha=1.0,
                             metric='minkowski', p=2, leaf_size=40,
                             approx_min_span_tree=True,
                             gen_min_span_tree=False,
                             core_dist_n_jobs=4, **kwargs):
-
     if leaf_size < 3:
         leaf_size = 3
 
@@ -242,12 +243,13 @@ def _druhg_boruvka_balltree(X, max_ranking=16, min_ranking=0, alpha=1.0,
     if X.dtype != np.float64:
         X = X.astype(np.float64)
 
-    print 'boruvka_balltree-'+ metric +' size:', str(len(X)), ' edges:', str(
-        len(X) * (len(X) - 1) / 2), ' max_ranking:', max_ranking, ' min_ranking:', min_ranking  # , 'diff_edges: ', str(len(np.unique(distance_matrix)))
+    print ('boruvka_balltree-' + metric + ' size:', str(len(X)), ' edges:', str(
+        len(X) * (len(
+            X) - 1) / 2), ' max_ranking:', max_ranking, ' min_ranking:', min_ranking)  # , 'diff_edges: ', str(len(np.unique(distance_matrix)))
 
     tree = BallTree(X, metric=metric, leaf_size=leaf_size, **kwargs)
     # todo: count pushed edges
-    alg = BallTreeBoruvkaAlgorithm(tree, max_neighbors_search = max_ranking, min_flatting = min_ranking, metric=metric,
+    alg = BallTreeBoruvkaAlgorithm(tree, max_neighbors_search=max_ranking, min_flatting=min_ranking, metric=metric,
                                    leaf_size=leaf_size // 3,
                                    approx_min_span_tree=approx_min_span_tree,
                                    n_jobs=core_dist_n_jobs, **kwargs)
@@ -264,6 +266,76 @@ def _druhg_boruvka_balltree(X, max_ranking=16, min_ranking=0, alpha=1.0,
         return single_linkage_tree, None
 
 
+def _druhg_prims_kdtree(X, max_ranking=16, min_ranking=1, alpha=1.0,
+                        metric='minkowski', p=2, leaf_size=40,
+                        gen_min_span_tree=False, **kwargs):
+    if X.dtype != np.float64:
+        X = X.astype(np.float64)
+
+    # The Cython routines used require contiguous arrays
+    if not X.flags['C_CONTIGUOUS']:
+        X = np.array(X, dtype=np.double, order='C')
+
+    print ('prims_kdtree-' + metric + ' size:', str(len(X)), ' edges:', str(
+        len(X) * (len(
+            X) - 1) / 2), ' max_ranking:', max_ranking, ' min_ranking:', min_ranking)  # , 'diff_edges: ', str(len(np.unique(distance_matrix)))
+
+    tree = KDTree(X, metric=metric, leaf_size=leaf_size, **kwargs)
+    # todo: count pushed edges
+    # TODO: Deal with p for minkowski appropriately
+    alg = MSTPrimsAlgorithm(tree, is_kd_tree=1,
+                            max_neighbors_search=max_ranking, min_flatting=min_ranking,
+                            metric=metric,
+                            leaf_size=leaf_size // 3,
+                            alpha=1.0,
+                            **kwargs)
+    min_spanning_tree = alg.spanning_tree()
+
+    # Sort edges of the min_spanning_tree by weight
+    row_order = np.argsort(min_spanning_tree.T[2])
+    min_spanning_tree = min_spanning_tree[row_order, :]
+
+    # Convert edge list into standard hierarchical clustering format
+    single_linkage_tree = label(min_spanning_tree)
+
+    return single_linkage_tree, None
+
+
+def _druhg_prims_balltree(X, max_ranking=16, min_ranking=1, alpha=1.0,
+                          metric='minkowski', p=2, leaf_size=40,
+                          gen_min_span_tree=False, **kwargs):
+    if X.dtype != np.float64:
+        X = X.astype(np.float64)
+
+    # The Cython routines used require contiguous arrays
+    if not X.flags['C_CONTIGUOUS']:
+        X = np.array(X, dtype=np.double, order='C')
+
+    print ('prims_balltree-' + metric + ' size:', str(len(X)), ' edges:', str(
+        len(X) * (len(
+            X) - 1) / 2), ' max_ranking:', max_ranking, ' min_ranking:', min_ranking)  # , 'diff_edges: ', str(len(np.unique(distance_matrix)))
+
+    tree = BallTree(X, metric=metric, leaf_size=leaf_size, **kwargs)
+    # todo: count pushed edges
+    # TODO: Deal with p for minkowski appropriately
+    alg = MSTPrimsAlgorithm(tree, is_kd_tree=0,
+                            max_neighbors_search=max_ranking, min_flatting=min_ranking,
+                            metric=metric,
+                            leaf_size=leaf_size // 3,
+                            alpha=1.0,
+                            **kwargs)
+    min_spanning_tree = alg.spanning_tree()
+
+    # Sort edges of the min_spanning_tree by weight
+    row_order = np.argsort(min_spanning_tree.T[2])
+    min_spanning_tree = min_spanning_tree[row_order, :]
+
+    # Convert edge list into standard hierarchical clustering format
+    single_linkage_tree = label(min_spanning_tree)
+
+    return single_linkage_tree, None
+
+
 def check_precomputed_distance_matrix(X):
     """Perform check_array(X) after removing infinite values (numpy.inf) from the given distance matrix.
     """
@@ -272,7 +344,7 @@ def check_precomputed_distance_matrix(X):
     check_array(tmp)
 
 
-def druhg(X, max_ranking=16, min_ranking=0, min_samples=5, alpha=1.0,
+def druhg(X, max_ranking=16, min_ranking=1, min_samples=5, alpha=1.0,
           metric='minkowski', p=2, run_times=0, leaf_size=40,
           algorithm='best', memory=Memory(cachedir=None, verbose=0),
           approx_min_span_tree=True, gen_min_span_tree=False,
@@ -283,21 +355,22 @@ def druhg(X, max_ranking=16, min_ranking=0, min_samples=5, alpha=1.0,
 
     Parameters
     ----------
-    X : array or sparse (CSR) matrix of shape (n_samples, n_features), or \
+    X : array matrix of shape (n_samples, n_features), or \
             array of shape (n_samples, n_samples)
         A feature array, or array of distances between samples if
         ``metric='precomputed'``.
-    min_ranking : int, optional (default=0)
+    min_ranking : int, optional (default=1)
         The minimum ranking to use in even ranking distance.
+        Clusters with density less than that will be merged with clusters up to this ranking
 
     max_ranking : int, optional (default=None)
-        The maximum number of neighbors to search in KDtree.
+        The maximum number of neighbors to search.
+        Use it as an upper bound of cluster-density as a performance boost
 
     min_samples : int, optional (default=5)
         The number of samples in a neighborhood for a point
         to be considered as a core point. This includes the point itself.
-        For final interpretation only.
-        Could be rerun
+        For final interpretation only and rerun-revisualizes.
 
     alpha : float, optional (default=1.0)
         A distance scaling parameter as used in robust single linkage.
@@ -328,6 +401,8 @@ def druhg(X, max_ranking=16, min_ranking=0, min_samples=5, alpha=1.0,
             * ``generic``
             * ``boruvka_kdtree``
             * ``boruvka_balltree``
+            * ``prims_kdtree``
+            * ``prims_balltree``
 
     memory : instance of joblib.Memory or string, optional
         Used to cache the output of the computation of the tree.
@@ -412,12 +487,22 @@ def druhg(X, max_ranking=16, min_ranking=0, min_samples=5, alpha=1.0,
     if min_samples is None:
         min_samples = 2
 
-    if type(min_samples) is not int or type(max_ranking) is not int or type(min_ranking) is not int:
-        raise ValueError('Min samples and min cluster size must be integers!')
+    if type(min_samples) is not int or type(min_ranking) is not int:
+        raise ValueError('Min samples and min ranking must be integers!')
+
+    if max_ranking is not None and type(max_ranking) is not int:
+        raise ValueError('Max ranking must be integer!')
+
+    if max_ranking is not None and max_ranking < 0:
+        raise ValueError('Max ranking must be non-negative integer!')
 
     if min_samples <= 0:
-        raise ValueError('Min samples and Max neighbors search must be positive'
-                         ' integers')
+        raise ValueError('Min samples must be positive integer')
+
+    if min_ranking == 0:
+        min_ranking = 1
+    if min_ranking < 0:
+        raise ValueError('Min ranking must be positive integer')
 
     if not isinstance(alpha, float) or alpha <= 0.0:
         raise ValueError('Alpha must be a positive float value greater than'
@@ -451,50 +536,74 @@ def druhg(X, max_ranking=16, min_ranking=0, min_samples=5, alpha=1.0,
 
     size = X.shape[0]
     min_samples = min(size, min_samples)
-    if min_samples == 0:
-        min_samples = 1
+    if min_samples <= 0:
+        min_samples = 2
 
-    max_ranking = min(size, max_ranking)
-    if max_ranking == 0:
-        max_ranking = 1
+    max_ranking = min(size - 1, max_ranking)
 
     if algorithm == 'best':
-        if metric != "precomputed" and size > 1000 and metric in KDTree.valid_metrics:
-            if X.shape[1] <= 40:
-                algorithm = 'boruvka_kdtree'
+        if metric != "precomputed" and metric not in FAST_METRICS and size > 1000:
+            if metric in KDTree.valid_metrics:
+                if X.shape[1] <= 40:
+                    algorithm = 'boruvka_kdtree'
+                else:
+                    algorithm = 'prims_kdtree'
             else:
-                algorithm = 'boruvka_balltree'
+                if X.shape[1] <= 40:
+                    algorithm = 'boruvka_balltree'
+                else:
+                    algorithm = 'prims_balltree'
         else:
             algorithm = 'generic'
-        print 'best algorithm chosen:  '+str(algorithm)+'-'+str(metric)
+        print ('best algorithm chosen:  ' + str(algorithm) + '-' + str(metric))
+
+    if algorithm != 'generic' and max_ranking is None:
+        max_ranking = 16
 
     if algorithm == 'generic':
-        max_ranking = size
+        if max_ranking is None:
+            max_ranking = size - 1
         (single_linkage_tree,
          result_min_span_tree,
          result_net_ranks) = memory.cache(
-                _druhg_generic)(X, alpha, metric,
-                                  p, min_ranking, run_times, leaf_size, gen_min_span_tree, **kwargs)
+            _druhg_generic)(X, alpha, metric,
+                            p, max_ranking, min_ranking, run_times, leaf_size, gen_min_span_tree, **kwargs)
     elif algorithm == 'boruvka_kdtree':
         if metric not in BallTree.valid_metrics:
-                raise ValueError("Cannot use Boruvka with KDTree for this"
-                                 " metric!")
+            raise ValueError("Cannot use Boruvka with KDTree for this"
+                             " metric!")
         (single_linkage_tree, result_min_span_tree) = memory.cache(
-         _druhg_boruvka_kdtree)(X, max_ranking, min_ranking, alpha,
-                                metric, p, leaf_size,
-                                approx_min_span_tree,
-                                gen_min_span_tree,
-                                core_dist_n_jobs, **kwargs)
+            _druhg_boruvka_kdtree)(X, max_ranking, min_ranking, alpha,
+                                   metric, p, leaf_size,
+                                   approx_min_span_tree,
+                                   gen_min_span_tree,
+                                   core_dist_n_jobs, **kwargs)
     elif algorithm == 'boruvka_balltree':
         if metric not in BallTree.valid_metrics:
-                raise ValueError("Cannot use Boruvka with BallTree for this"
-                                 " metric!")
+            raise ValueError("Cannot use Boruvka with BallTree for this"
+                             " metric!")
         (single_linkage_tree, result_min_span_tree) = memory.cache(
-         _druhg_boruvka_balltree)(X, max_ranking, min_ranking, alpha,
-                                  metric, p, leaf_size,
-                                  approx_min_span_tree,
-                                  gen_min_span_tree,
-                                  core_dist_n_jobs, **kwargs)
+            _druhg_boruvka_balltree)(X, max_ranking, min_ranking, alpha,
+                                     metric, p, leaf_size,
+                                     approx_min_span_tree,
+                                     gen_min_span_tree,
+                                     core_dist_n_jobs, **kwargs)
+    elif algorithm == 'prims_kdtree':
+        if metric not in KDTree.valid_metrics:
+            raise ValueError("Cannot use Prim's with KDTree for this"
+                             " metric!")
+        (single_linkage_tree, result_min_span_tree) = memory.cache(
+            _druhg_prims_kdtree)(X, max_ranking, min_ranking, alpha,
+                                 metric, p, leaf_size,
+                                 gen_min_span_tree, **kwargs)
+    elif algorithm == 'prims_balltree':
+        if metric not in BallTree.valid_metrics:
+            raise ValueError("Cannot use Prim's with BallTree for this"
+                             " metric!")
+        (single_linkage_tree, result_min_span_tree) = memory.cache(
+            _druhg_prims_balltree)(X, max_ranking, min_ranking, alpha,
+                                   metric, p, leaf_size,
+                                   gen_min_span_tree, **kwargs)
     else:
         raise TypeError('Unknown algorithm type %s specified' % algorithm)
 
@@ -507,7 +616,7 @@ def druhg(X, max_ranking=16, min_ranking=0, min_samples=5, alpha=1.0,
 
 
 class DRUHG(BaseEstimator, ClusterMixin):
-    def __init__(self, max_ranking=16, min_ranking=0, min_samples=5,
+    def __init__(self, max_ranking=16, min_ranking=1, min_samples=5,
                  metric='euclidean', alpha=1.0, p=None,
                  algorithm='best', run_times=0, leaf_size=40,
                  memory=Memory(cachedir=None, verbose=0),
@@ -607,18 +716,18 @@ class DRUHG(BaseEstimator, ClusterMixin):
 
     def revisualize(self, min_samples):
         self.min_samples = min_samples
-        
+
         (self.labels_,
          self.probabilities_,
          self.cluster_persistence_,
          self._condensed_tree,
          self._single_linkage_tree) = _tree_to_labels(self._single_linkage_tree,
-                               self.min_samples,
-                               self.cluster_selection_method,
-                               self.allow_single_cluster,
-                               self.match_reference_implementation)
+                                                      self.min_samples,
+                                                      self.cluster_selection_method,
+                                                      self.allow_single_cluster,
+                                                      self.match_reference_implementation)
         return self
-        # return (labels, probabilities, stabilities, condensed_tree,
+        # return (labels, probabilities, stabilities,  condensed_tree,
         #         single_linkage_tree)
 
         # return self.labels_
