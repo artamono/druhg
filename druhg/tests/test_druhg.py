@@ -265,21 +265,63 @@ def test_druhg_best_tree_metric():
 #    DRUHG().fit(X)  # must not raise exception
 #
 
+def test_druhg_prims_kdtree():
+    labels, p, persist, ctree, ltree, mtree = druhg(X,
+                                                    min_ranking=4,
+                                                    max_ranking=4,
+                                                    min_samples=5,
+                                                    algorithm='prims_kdtree')
+    n_clusters_1 = len(set(labels)) - int(-1 in labels)
+    assert_equal(n_clusters_1, n_clusters)
+
+
+    labels = DRUHG(algorithm='prims_kdtree',
+                     min_ranking=5,
+                     max_ranking=20,
+                     min_samples=5,
+                     gen_min_span_tree=True).fit(X).labels_
+    n_clusters_2 = len(set(labels)) - int(-1 in labels)
+    assert_equal(n_clusters_2, n_clusters)
+
+    assert_raises(ValueError,
+                  druhg,
+                  X,
+                  algorithm='prims_kdtree',
+                  metric='russelrao')
+
+
+def test_druhg_prims_balltree():
+    labels, p, persist, ctree, ltree, mtree = druhg(
+        X, algorithm='prims_balltree')
+    n_clusters_1 = len(set(labels)) - int(-1 in labels)
+    assert_equal(n_clusters_1, n_clusters)
+
+    labels = DRUHG(algorithm='prims_balltree',
+                     gen_min_span_tree=True).fit(X).labels_
+    n_clusters_2 = len(set(labels)) - int(-1 in labels)
+    assert_equal(n_clusters_2, n_clusters)
+
+    assert_raises(ValueError,
+                  druhg,
+                  X,
+                  algorithm='prims_balltree',
+                  metric='cosine')
+
 def test_druhg_boruvka_kdtree_matches():
 
     data = generate_noisy_data()
 
     labels_true, p, persist, ctree, ltree, mtree = druhg(
-        data, algorithm='generic')
+        data, algorithm='generic', run_times = 10)
     labels_boruvka, p, persist, ctree, ltree, mtree = druhg(
-        data, algorithm='boruvka_kdtree')
+        data, algorithm='boruvka_kdtree', min_ranking = 5)
 
     num_mismatches = homogeneity(labels_true, labels_boruvka)
 
     assert_less(num_mismatches / float(data.shape[0]), 0.15)
 
-    labels_true = DRUHG(algorithm='generic').fit_predict(data)
-    labels_boruvka = DRUHG(algorithm='boruvka_kdtree').fit_predict(data)
+    labels_true = DRUHG(algorithm='generic', min_ranking = 5).fit_predict(data)
+    labels_boruvka = DRUHG(algorithm='boruvka_kdtree', min_ranking = 5).fit_predict(data)
 
     num_mismatches = homogeneity(labels_true, labels_boruvka)
 
@@ -290,20 +332,21 @@ def test_druhg_boruvka_balltree_matches():
 
     data = generate_noisy_data()
 
-    min_samples = 3
+    min_samples = 12
+    min_ranking = 8
     max_ranking = 32
 
     labels_true, p, persist, ctree, ltree, mtree = druhg(
-        data, algorithm='generic', min_samples = min_samples)
+        data, algorithm='generic', min_samples=min_samples, min_ranking=min_ranking)
     labels_boruvka, p, persist, ctree, ltree, mtree = druhg(
-        data, algorithm='boruvka_balltree', min_samples = min_samples, max_ranking = max_ranking)
+        data, algorithm='boruvka_balltree', min_samples=min_samples, max_ranking=max_ranking, min_ranking=min_ranking)
 
     num_mismatches = homogeneity(labels_true, labels_boruvka)
 
     assert_less(num_mismatches / float(data.shape[0]), 0.15)
 
-    labels_true = DRUHG(algorithm='generic', min_samples = min_samples).fit_predict(data)
-    labels_boruvka = DRUHG(algorithm='boruvka_kdtree', min_samples = min_samples, max_ranking = max_ranking).fit_predict(data)
+    labels_true = DRUHG(algorithm='generic', min_samples=min_samples, min_ranking=min_ranking).fit_predict(data)
+    labels_boruvka = DRUHG(algorithm='boruvka_kdtree', min_samples=min_samples, max_ranking=max_ranking, min_ranking=min_ranking).fit_predict(data)
 
     num_mismatches = homogeneity(labels_true, labels_boruvka)
 
@@ -480,24 +523,24 @@ def test_druhg_badargs():
     assert_raises(ValueError,
                   druhg,
                   X, metric='minkowski', p=-1)
-#    assert_raises(ValueError,
-#                  druhg,
-#                  X, metric='minkowski', p=-1, algorithm='prims_kdtree')
-#    assert_raises(ValueError,
-#                  druhg,
-#                  X, metric='minkowski', p=-1, algorithm='prims_balltree')
+    assert_raises(ValueError,
+                  druhg,
+                  X, metric='minkowski', p=-1, algorithm='prims_kdtree')
+    assert_raises(ValueError,
+                  druhg,
+                  X, metric='minkowski', p=-1, algorithm='prims_balltree')
     assert_raises(ValueError,
                   druhg,
                   X, metric='minkowski', p=-1, algorithm='boruvka_balltree')
     assert_raises(ValueError,
                   druhg,
                   X, metric='precomputed', algorithm='boruvka_kdtree')
-#    assert_raises(ValueError,
-#                  druhg,
-#                  X, metric='precomputed', algorithm='prims_kdtree')
-#    assert_raises(ValueError,
-#                  druhg,
-#                  X, metric='precomputed', algorithm='prims_balltree')
+    assert_raises(ValueError,
+                  druhg,
+                  X, metric='precomputed', algorithm='prims_kdtree')
+    assert_raises(ValueError,
+                  druhg,
+                  X, metric='precomputed', algorithm='prims_balltree')
     assert_raises(ValueError,
                   druhg,
                   X, metric='precomputed', algorithm='boruvka_balltree')
