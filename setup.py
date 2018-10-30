@@ -53,8 +53,8 @@ def requirements():
 
 configuration = {
     'name': 'druhg',
-    'version': '0.8.18',
-    'description': 'Clustering based on density with variable density clusters',
+    'version': '0.9.0',
+    'description': 'Universal density clustering based on even subjective ranking',
     'long_description': readme(),
     'classifiers': [
         'Development Status :: 4 - Beta',
@@ -73,7 +73,7 @@ configuration = {
         'Programming Language :: Python :: 3.4',
     ],
     'keywords': 'cluster clustering density hierarchical',
-    'url': 'http://github.com/scikit-learn-contrib/druhg',
+    'url': 'https://github.com/artamono/druhg',
     'maintainer': 'Pavel Artamonov',
     'maintainer_email': 'main.edgehog.net@gmail.com',
     'license': 'BSD',
