@@ -1,6 +1,8 @@
 
+=======
 DRUHG
 =======
+
 | DRUHG – Density Ranking Universal Hierarchical Grouping. Read as droog, it means friend.
 | Performs clustering based on even subjective rankings of each datapoint and best stability of a minimum spanning tree of even ranking metric space.
 | **Does not require parameters.**
