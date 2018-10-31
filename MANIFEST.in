@@ -1,3 +1,2 @@
 include *.rst *.txt pyproject.toml
 recursive-include druhg *.py *.pyx *.pxd *.c
-recursive-include examples *.py
