@@ -1,3 +1,9 @@
+.. image:: https://img.shields.io/pypi/v/druhg.svg
+    :target: https://pypi.python.org/pypi/druhg/
+    :alt: PyPI Version
+.. image:: https://img.shields.io/pypi/l/druhg.svg
+    :target: https://github.com/artamono/druhg/blob/master/LICENSE
+    :alt: License
 
 =======
 DRUHG
@@ -47,7 +53,7 @@ How to use DRUHG
     data, _ = make_blobs(1000)
     
     clusterer = druhg.DRUHG()
-    cluster_labels = clusterer.fit(data)
+    cluster_labels = clusterer.fit(data).labels_
 It will build the tree and label the points. Now you can condense the tree without rerunning the hardest part of the algorithm. With parameter ``min_samples`` for a cluster size.
 
 .. code:: python
