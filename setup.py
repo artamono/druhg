@@ -28,8 +28,8 @@ class CustomBuildExtCommand(build_ext):
 
 _hdbscan_tree = Extension('druhg._hdbscan_tree',
                           sources=['druhg/_hdbscan_tree.pyx'])
-_druhg_linkage = Extension('druhg._druhg_linkage',
-                             sources=['druhg/_druhg_linkage.pyx'])
+_druhg_helper = Extension('druhg._druhg_helper',
+                             sources=['druhg/_druhg_helper.pyx'])
 _prediction_utils = Extension('druhg._prediction_utils',
                               sources=['druhg/_prediction_utils.pyx'])
 _druhg_boruvka = Extension('druhg._druhg_boruvka',
@@ -80,7 +80,7 @@ configuration = {
     'packages': ['druhg', 'druhg.tests'],
     'install_requires': requirements(),
     'ext_modules': [_hdbscan_tree,
-                    _druhg_linkage,
+                    _druhg_helper,
                     _druhg_boruvka,
                     _druhg_prims,
                     _druhg_even_rankability,
