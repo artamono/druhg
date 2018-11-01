@@ -18,15 +18,13 @@ from sklearn.externals.joblib.parallel import cpu_count
 
 from scipy.sparse import csgraph
 
-from ._druhg_linkage import (single_linkage,
-                             mst_linkage_core,
-                             label)
+from ._druhg_helper import (make_hierarchy)
 from ._hdbscan_tree import (condense_tree,
                             compute_stability,
                             get_clusters,
                             outlier_scores)
 
-from ._druhg_even_rankability import even_rankability  # , sparse_mutual_rankability)
+from ._druhg_even_rankability import (even_rankability, mst_linkage_core)  # , sparse_mutual_rankability)
 
 from ._druhg_boruvka import KDTreeBoruvkaAlgorithm, BallTreeBoruvkaAlgorithm
 from ._druhg_prims import MSTPrimsAlgorithm
@@ -67,6 +65,70 @@ def _tree_to_labels(single_linkage_tree,
     return (labels, probabilities, stabilities, condensed_tree,
             single_linkage_tree)
 
+def _druhg_none(X, alpha=1.0, metric='minkowski', p=2,
+                max_ranking=0, min_ranking=1, run_times=1,
+                leaf_size=None, gen_min_span_tree=False, **kwargs):
+    # for mst building
+    if metric == 'minkowski':
+        distance_matrix = pairwise_distances(X, metric=metric, p=p)
+    elif metric == 'arccos':
+        distance_matrix = pairwise_distances(X, metric='cosine', **kwargs)
+    elif metric == 'precomputed':
+        # Treating this case explicitly, instead of letting
+        #   sklearn.metrics.pairwise_distances handle it,
+        #   enables the usage of numpy.inf in the distance
+        #   matrix to indicate missing distance information.
+        # TODO: Check if copying is necessary
+        distance_matrix = X.copy()
+    else:
+        distance_matrix = pairwise_distances(X, metric=metric, **kwargs)
+
+    # if issparse(distance_matrix):
+    #     # raise TypeError('Sparse distance matrices not yet supported')
+    #     return _druhg_sparse_distance_matrix(distance_matrix, min_samples,
+    #                                            alpha, metric, p,
+    #                                            leaf_size, gen_min_span_tree,
+    #                                            **kwargs)
+    size = distance_matrix.shape[0]
+
+    print('none-' + metric, '  size: ', str(size), ' edges: ', str(
+        size * (size - 1) / 2))  # , 'diff_edges: ', str(len(np.unique(distance_matrix)))
+
+    min_spanning_tree = mst_linkage_core(distance_matrix)
+
+    # Warn if the MST couldn't be constructed around the missing distances
+    if np.isinf(min_spanning_tree.T[2]).any():
+        warn('The minimum spanning tree contains edge weights with value '
+             'infinity. Potentially, you are missing too many distances '
+             'in the initial distance matrix for the given neighborhood '
+             'size.', UserWarning)
+
+    # mst_linkage_core does not generate a full minimal spanning tree
+    # If a tree is required then we must build the edges from the information
+    # returned by mst_linkage_core (i.e. just the order of points to be merged)
+    if gen_min_span_tree:
+        result_min_span_tree = min_spanning_tree.copy()
+        for index, row in enumerate(result_min_span_tree[1:], 1):
+            candidates = np.where(isclose(distance_matrix[int(row[1])],
+                                          row[2]))[0]
+            candidates = np.intersect1d(candidates,
+                                        min_spanning_tree[:index, :2].astype(
+                                            int))
+            candidates = candidates[candidates != row[1]]
+            assert len(candidates) > 0
+            row[0] = candidates[0]
+    else:
+        result_min_span_tree = None
+
+    # Sort edges of the min_spanning_tree by weight
+    min_spanning_tree = min_spanning_tree[np.argsort(min_spanning_tree.T[2]),
+                        :]
+
+    # Convert edge list into standard hierarchical clustering format
+    single_linkage_tree = make_hierarchy(min_spanning_tree)
+
+    return single_linkage_tree, result_min_span_tree
+
 
 def _druhg_generic(X, alpha=1.0, metric='minkowski', p=2,
                    max_ranking=0, min_ranking=1, run_times=1,
@@ -93,26 +155,22 @@ def _druhg_generic(X, alpha=1.0, metric='minkowski', p=2,
     #                                            **kwargs)
     size = distance_matrix.shape[0]
 
-    print ('generic-' + metric + '. min_ranking', min_ranking, '  size: ', str(size), ' edges: ', str(
+    print ('generic-' + metric + '. min_ranking', min_ranking, 'max_ranking', max_ranking, '  size: ', str(size), ' edges: ', str(
         size * (size - 1) / 2))  # , 'diff_edges: ', str(len(np.unique(distance_matrix)))
 
-    even_rankability_, net_ranks = even_rankability(distance_matrix, min_flatting=min_ranking, max_neighbors_search=max_ranking)
+    even_rankability_ = even_rankability(distance_matrix, min_flatting=min_ranking, max_neighbors_search=max_ranking)
 
-    print ('run:', str(1), ' ranks_pushed:', str(net_ranks))  # , 'diff_edges: ', str(len(np.unique(even_rankability_)))
+    print ('run:', str(1))  # , 'diff_edges: ', str(len(np.unique(even_rankability_)))
 
-    if run_times > 1:
-        print ('run_times planned:' + str(run_times))
-        i = 1
-        rank = 1
-        while ((run_times - 1 != 0) and (rank != 0)):
-            even_rankability_, rank = even_rankability(even_rankability_, min_flatting=min_ranking)
-            net_ranks += rank
-            run_times -= 1
-            i += 1
-            print ('run:', str(i), ' ranks_pushed:', str(
-                rank))  # , 'diff_edges: ', str(len(np.unique(even_rankability_)))
-            # print even_rankability_.round(2)
-        print ('total run_times:', str(i))
+    run_times -= 1
+    i = 1
+    while (run_times > 0):
+        even_rankability_ = even_rankability(even_rankability_, min_flatting=min_ranking)
+        run_times -= 1
+        print ('run:', str(i))  # , 'diff_edges: ', str(len(np.unique(even_rankability_)))
+        i += 1
+        # print even_rankability_.round(2)
+
 
     min_spanning_tree = mst_linkage_core(even_rankability_)
 
@@ -145,9 +203,9 @@ def _druhg_generic(X, alpha=1.0, metric='minkowski', p=2,
                         :]
 
     # Convert edge list into standard hierarchical clustering format
-    single_linkage_tree = label(min_spanning_tree)
+    single_linkage_tree = make_hierarchy(min_spanning_tree)
 
-    return single_linkage_tree, result_min_span_tree, net_ranks
+    return single_linkage_tree, result_min_span_tree
 
 
 #
@@ -221,7 +279,7 @@ def _druhg_boruvka_kdtree(X, max_ranking=16, min_ranking=1, alpha=1.0,
     row_order = np.argsort(min_spanning_tree.T[2])
     min_spanning_tree = min_spanning_tree[row_order, :]
     # Convert edge list into standard hierarchical clustering format
-    single_linkage_tree = label(min_spanning_tree)
+    single_linkage_tree = make_hierarchy(min_spanning_tree)
 
     if gen_min_span_tree:
         return single_linkage_tree, min_spanning_tree
@@ -258,7 +316,7 @@ def _druhg_boruvka_balltree(X, max_ranking=16, min_ranking=1, alpha=1.0,
     min_spanning_tree = min_spanning_tree[np.argsort(min_spanning_tree.T[2]),
                         :]
     # Convert edge list into standard hierarchical clustering format
-    single_linkage_tree = label(min_spanning_tree)
+    single_linkage_tree = make_hierarchy(min_spanning_tree)
 
     if gen_min_span_tree:
         return single_linkage_tree, min_spanning_tree
@@ -296,7 +354,7 @@ def _druhg_prims_kdtree(X, max_ranking=16, min_ranking=1, alpha=1.0,
     min_spanning_tree = min_spanning_tree[row_order, :]
 
     # Convert edge list into standard hierarchical clustering format
-    single_linkage_tree = label(min_spanning_tree)
+    single_linkage_tree = make_hierarchy(min_spanning_tree)
 
     return single_linkage_tree, None
 
@@ -331,7 +389,7 @@ def _druhg_prims_balltree(X, max_ranking=16, min_ranking=1, alpha=1.0,
     min_spanning_tree = min_spanning_tree[row_order, :]
 
     # Convert edge list into standard hierarchical clustering format
-    single_linkage_tree = label(min_spanning_tree)
+    single_linkage_tree = make_hierarchy(min_spanning_tree)
 
     return single_linkage_tree, None
 
@@ -403,6 +461,7 @@ def druhg(X, max_ranking=16, min_ranking=1, min_samples=5, alpha=1.0,
             * ``boruvka_balltree``
             * ``prims_kdtree``
             * ``prims_balltree``
+            * ``none``
 
     memory : instance of joblib.Memory or string, optional
         Used to cache the output of the computation of the tree.
@@ -560,12 +619,16 @@ def druhg(X, max_ranking=16, min_ranking=1, min_samples=5, alpha=1.0,
     if algorithm != 'generic' and max_ranking is None:
         max_ranking = 16
 
-    if algorithm == 'generic':
+    if algorithm == 'none':
+        (single_linkage_tree,
+         result_min_span_tree) = memory.cache(
+            _druhg_none)(X, alpha, metric,
+                            p, max_ranking, min_ranking, run_times, leaf_size, gen_min_span_tree, **kwargs)
+    elif algorithm == 'generic':
         if max_ranking is None:
             max_ranking = size - 1
         (single_linkage_tree,
-         result_min_span_tree,
-         result_net_ranks) = memory.cache(
+         result_min_span_tree) = memory.cache(
             _druhg_generic)(X, alpha, metric,
                             p, max_ranking, min_ranking, run_times, leaf_size, gen_min_span_tree, **kwargs)
     elif algorithm == 'boruvka_kdtree':
