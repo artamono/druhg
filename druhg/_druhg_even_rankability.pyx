@@ -16,7 +16,7 @@ import gc
 
 
 def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, verbose = True):
-    """Compute the weighted adjacency matrix of the mutual rankability
+    """Compute the weighted adjacency matrix of the even rankability
     graph of a distance matrix.
 
     Parameters
@@ -27,17 +27,14 @@ def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, ve
     min_flatting : nint, optional (default=0)
         The min_flatting paramater of DRUHG - how many neighbors of the point to flat rank and even their distances
 
+    max_neighbors_search: nint, optional (default=0)
+        The max_neighbors_search parameter of DRUHG - how many neighbors of the point to match their ranks with
+
 
     Returns
     -------
     even_rankability: ndarray, shape (n_samples, n_samples)
-        Weighted adjacency matrix of the mutual rankability graph.
-
-    pushed_ranks: ndarray, shape (n_samples)
-        Vector of cummulated pushed ranks
-
-    ranks_equalized: int
-        Total amount of ranks changed during comparison
+        Weighted adjacency matrix of the even rankability graph.
 
     """
 
@@ -58,6 +55,8 @@ def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, ve
     sortedM = np.argsort(result, axis=1)
 
     progress = -1
+    if verbose:
+        sys.stderr.write('progress: ',)
 
     for i in range(1, size):
         if verbose:
@@ -77,9 +76,9 @@ def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, ve
             rank_i = ki
             rank_j = np.where(sortedM[j]==i)[0][0]
 
-            while (distance_matrix[i][sortedM[i][rank_i - 1]]==distance):
+            while distance_matrix[i][sortedM[i][rank_i - 1]]==distance:
                 rank_i -= 1
-            while (distance_matrix[j][sortedM[j][rank_j - 1]]==distance):
+            while distance_matrix[j][sortedM[j][rank_j - 1]]==distance:
                 rank_j -= 1
 
             if rank_i > rank_j:
@@ -89,15 +88,6 @@ def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, ve
                     rank = min_flatting
                 if distance != distance_matrix[j][sortedM[j][rank]]:
                     result[i][j] = result[j][i] = distance_matrix[j][sortedM[j][rank]]
-                    # rr = 0
-                    # rank_j += 1
-                    # while (rank_j <= rank):
-                    #     if (distance != distance_matrix[j][sortedM[j][rank_j]]):
-                    #         rr += 1
-                    #     rank_j += 1
-                    # # pushed_ranks[i] += rr
-                    # # pusher_ranks[j] += rr
-                    # net_ranks += rr
             else:
                 rank = rank_j
 
@@ -105,25 +95,16 @@ def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, ve
                     rank = min_flatting
                 if distance != distance_matrix[i][sortedM[i][rank]]:
                     result[i][j] = result[j][i] = distance_matrix[i][sortedM[i][rank]]
-                    # rr = 0
-                    # rank_i += 1
-                    # while (rank_i <= rank):
-                    #     if (distance != distance_matrix[i][sortedM[i][rank_i]]):
-                    #         rr += 1
-                    #     rank_i += 1
-                    # # pushed_ranks[j] += rr
-                    # # pusher_ranks[i] += rr
-                    # net_ranks += rr
 
             # distance = np.max([distance_matrix[i][sortedM[i][rank]],distance_matrix[j][sortedM[j][rank]]])
     if verbose:
         sys.stderr.write(str(100)+'% ',)
-    return result, net_ranks#, pushed_ranks, pusher_ranks,
+    return result #net_ranks#, pushed_ranks, pusher_ranks,
 
 
 def even_rankability_old(distance_matrix, min_flatting=0, verbose = True):
     # no max_neighbors_search
-    """Compute the weighted adjacency matrix of the mutual rankability
+    """Compute the weighted adjacency matrix of the even rankability
     graph of a distance matrix.
 
     Parameters
@@ -134,11 +115,14 @@ def even_rankability_old(distance_matrix, min_flatting=0, verbose = True):
     min_flatting : nint, optional (default=0)
         The min_flatting paramater of DRUHG - how many neighbors of the point to flat rank and even their distances
 
+    max_neighbors_search: nint, optional (default=0)
+        The max_neighbors_search parameter of DRUHG - how many neighbors of the point to match their ranks with
+
 
     Returns
     -------
     even_rankability: ndarray, shape (n_samples, n_samples)
-        Weighted adjacency matrix of the mutual rankability graph.
+        Weighted adjacency matrix of the even rankability graph.
 
     pushed_ranks: ndarray, shape (n_samples)
         Vector of cummulated pushed ranks
@@ -224,7 +208,7 @@ def even_rankability_old(distance_matrix, min_flatting=0, verbose = True):
 
 
 def even_rankability_ranks(distance_matrix, min_flatting=0):
-    """Compute the weighted adjacency matrix of the mutual rankability
+    """Compute the weighted adjacency matrix of the even rankability
     graph of a distance matrix.
 
     Parameters
@@ -239,7 +223,7 @@ def even_rankability_ranks(distance_matrix, min_flatting=0):
     Returns
     -------
     even_rankability: ndarray, shape (n_samples, n_samples)
-        Weighted adjacency matrix of the mutual rankability graph.
+        Weighted adjacency matrix of the even rankability graph.
 
     pushed_ranks: ndarray, shape (n_samples)
         Vector of cummulated pushed ranks
@@ -349,3 +333,45 @@ def even_rankability_ranks(distance_matrix, min_flatting=0):
 #             result[i, j] = mr_dist
 # 
 #     return result.tocsr()
+
+cpdef np.ndarray[np.double_t, ndim=2] mst_linkage_core(
+                               np.ndarray[np.double_t,
+                                          ndim=2] distance_matrix):
+
+    cdef np.ndarray[np.intp_t, ndim=1] node_labels
+    cdef np.ndarray[np.intp_t, ndim=1] current_labels
+    cdef np.ndarray[np.double_t, ndim=1] current_distances
+    cdef np.ndarray[np.double_t, ndim=1] left
+    cdef np.ndarray[np.double_t, ndim=1] right
+    cdef np.ndarray[np.double_t, ndim=2] result
+
+    cdef np.ndarray label_filter
+
+    cdef np.intp_t current_node
+    cdef np.intp_t new_node_index
+    cdef np.intp_t new_node
+    cdef np.intp_t i
+    cdef np.intp_t num_edges
+
+    result = np.zeros((distance_matrix.shape[0] - 1, 3))
+    node_labels = np.arange(distance_matrix.shape[0], dtype=np.intp)
+    current_node = 0
+    current_distances = np.infty * np.ones(distance_matrix.shape[0])
+    current_labels = node_labels
+    num_edges = node_labels.shape[0] - 1
+    
+    for i in range(num_edges):
+        label_filter = current_labels != current_node
+        current_labels = current_labels[label_filter]
+        left = current_distances[label_filter]
+        right = distance_matrix[current_node][current_labels]
+        current_distances = np.where(left < right, left, right)
+
+        new_node_index = np.argmin(current_distances)
+        new_node = current_labels[new_node_index]
+        result[i, 0] = <double> current_node
+        result[i, 1] = <double> new_node
+        result[i, 2] = current_distances[new_node_index]
+        current_node = new_node
+
+    return result
