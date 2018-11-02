@@ -167,11 +167,10 @@ def _druhg_generic(X, alpha=1.0, metric='minkowski', p=2,
     while (run_times > 0):
         even_rankability_ = even_rankability(even_rankability_, min_flatting=min_ranking)
         run_times -= 1
-        print ('run:', str(i))  # , 'diff_edges: ', str(len(np.unique(even_rankability_)))
         i += 1
-        # print even_rankability_.round(2)
+        print ('run:', str(i))  # , 'diff_edges: ', str(len(np.unique(even_rankability_)))
 
-
+        
     min_spanning_tree = mst_linkage_core(even_rankability_)
 
     # Warn if the MST couldn't be constructed around the missing distances
