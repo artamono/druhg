@@ -53,7 +53,7 @@ def requirements():
 
 configuration = {
     'name': 'druhg',
-    'version': '0.9.0',
+    'version': '0.9.1',
     'description': 'Universal density clustering based on even subjective ranking',
     'long_description': readme(),
     'classifiers': [
