@@ -5,9 +5,9 @@
     :target: https://github.com/artamono/druhg/blob/master/LICENSE
     :alt: License
 
-=======
+=====
 DRUHG
-=======
+=====
 
 | DRUHG – Density Ranking Universal Hierarchical Grouping. Read as droog, it means friend.
 | Performs clustering based on even subjective rankings of each datapoint and best stability of a minimum spanning tree of even ranking metric space.
@@ -22,9 +22,9 @@ DRUHG
 | arXiv and would like to endorse me, please, follow the link
 | https://arxiv.org/auth/endorse?x=VEHO3C
 
-------------------
+-------------
 Basic Concept
-------------------
+-------------
 
 | There are some optional tuning parameters but actual algorithm requires none and is universal.
 | It works like **the universal society rule: treat others how you want to be treated**.
@@ -42,9 +42,9 @@ Basic Concept
     Hierarchical Density Estimates*
     In: Advances in Knowledge Discovery and Data Mining, Springer, pp 160-172.
     2013
-------------------
+----------------
 How to use DRUHG
-------------------
+----------------
 .. code:: python
 
     import druhg
