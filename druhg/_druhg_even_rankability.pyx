@@ -15,7 +15,7 @@ from scipy.sparse import lil_matrix as sparse_matrix
 import gc
 
 
-def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, verbose = True):
+def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, step_ranking=0, verbose=True):
     """Compute the weighted adjacency matrix of the even rankability
     graph of a distance matrix.
 
@@ -23,6 +23,9 @@ def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, ve
     ----------
     distance_matrix : ndarray, shape (n_samples, n_samples)
         Array of distances between samples.
+
+    step_ranking : nint, optional (default=0)
+        The step_ranking parameter of DRUHG - how many ranks to downgrade the even subjective ranking
 
     min_flatting : nint, optional (default=0)
         The min_flatting paramater of DRUHG - how many neighbors of the point to flat rank and even their distances
@@ -81,22 +84,21 @@ def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, ve
             while distance_matrix[j][sortedM[j][rank_j - 1]]==distance:
                 rank_j -= 1
 
+            rank_max = rank_j
+
             if rank_i > rank_j:
-                rank = rank_i
+                rank_max = rank_i
 
-                if rank < min_flatting:
-                    rank = min_flatting
-                if distance != distance_matrix[j][sortedM[j][rank]]:
-                    result[i][j] = result[j][i] = distance_matrix[j][sortedM[j][rank]]
+            if rank_max + step_ranking > size:
+                rank_max = size - 1
             else:
-                rank = rank_j
+                rank_max += step_ranking
 
-                if rank < min_flatting:
-                    rank = min_flatting
-                if distance != distance_matrix[i][sortedM[i][rank]]:
-                    result[i][j] = result[j][i] = distance_matrix[i][sortedM[i][rank]]
+            if rank_max < min_flatting:
+                rank_max = min_flatting
 
-            # distance = np.max([distance_matrix[i][sortedM[i][rank]],distance_matrix[j][sortedM[j][rank]]])
+            result[i][j] = result[j][i] = np.max([distance_matrix[j][sortedM[j][rank_max]],distance_matrix[i][sortedM[i][rank_max]]])
+
     if verbose:
         sys.stderr.write(str(100)+'% ',)
     return result #net_ranks#, pushed_ranks, pusher_ranks,
