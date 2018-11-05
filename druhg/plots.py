@@ -694,7 +694,7 @@ class SingleLinkageTree(object):
         ----------
 
         cut_distance : float
-            The mutual reachability distance cut value to use to generate a flat clustering.
+            The distance cut value to use to generate a flat clustering.
 
         min_cluster_size : int, optional
             Clusters smaller than this value with be called 'noise' and remain unclustered
@@ -750,7 +750,7 @@ class MinimumSpanningTree(object):
 
         vary_line_width : bool, optional
                 Edge width is proportional to (log of) the inverse of the
-                mutual reachability distance. (default True)
+                distance. (default True)
 
         colorbar : bool, optional
                 Whether to draw a colorbar. (default True)
@@ -803,7 +803,7 @@ class MinimumSpanningTree(object):
 
         if colorbar:
             cb = plt.colorbar(line_collection)
-            cb.ax.set_ylabel('Mutual reachability distance')
+            cb.ax.set_ylabel('Even rankability distance')
 
         return axis
 
