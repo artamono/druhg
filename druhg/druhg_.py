@@ -698,7 +698,7 @@ def druhg(X, max_ranking=16, min_ranking=None, min_samples=5, step_ranking=None,
 
 
 class DRUHG(BaseEstimator, ClusterMixin):
-    def __init__(self, max_ranking=16, min_ranking=1, min_samples=5,
+    def __init__(self, max_ranking=16, min_ranking=None, step_ranking=None, min_samples=5,
                  metric='euclidean', alpha=1.0, p=None,
                  algorithm='best', run_times=0, leaf_size=40,
                  memory=Memory(cachedir=None, verbose=0),
@@ -711,6 +711,7 @@ class DRUHG(BaseEstimator, ClusterMixin):
                  match_reference_implementation=False, **kwargs):
         self.max_ranking = max_ranking
         self.min_ranking = min_ranking
+        self.step_ranking = step_ranking
         self.min_samples = min_samples
         self.alpha = alpha
         self.run_times = run_times
@@ -806,7 +807,7 @@ class DRUHG(BaseEstimator, ClusterMixin):
             raise ValueError('Min samples must be positive integer')
         if min_samples <= 0:
             min_samples = 2
-        
+
         self.min_samples = min_samples
 
         (self.labels_,
