@@ -67,9 +67,7 @@ def _tree_to_labels(single_linkage_tree,
             single_linkage_tree)
 
 
-def _druhg_none(X, alpha=1.0, metric='minkowski', p=2,
-                max_ranking=0, min_ranking=1, run_times=1,
-                leaf_size=None, gen_min_span_tree=False, **kwargs):
+def _druhg_none(X, alpha=1.0, metric='minkowski', p=2, gen_min_span_tree=False, **kwargs):
     # for mst building
     if metric == 'minkowski':
         distance_matrix = pairwise_distances(X, metric=metric, p=p)
@@ -133,7 +131,7 @@ def _druhg_none(X, alpha=1.0, metric='minkowski', p=2,
 
 
 def _druhg_generic(X, alpha=1.0, metric='minkowski', p=2,
-                   max_ranking=0, min_ranking=1, step_ranking=0, run_times=1,
+                   max_ranking=0, min_ranking=1, step_ranking=0, step_factor=0, is_ranks=False, run_times=1,
                    leaf_size=None, gen_min_span_tree=False, verbose=False, **kwargs):
     if metric == 'minkowski':
         distance_matrix = pairwise_distances(X, metric=metric, p=p)
@@ -157,19 +155,17 @@ def _druhg_generic(X, alpha=1.0, metric='minkowski', p=2,
     #                                            **kwargs)
     size = distance_matrix.shape[0]
 
-    print('generic-' + metric + '. min_ranking', min_ranking, 'max_ranking', max_ranking, '  size: ', str(size),
-          ' edges: ', str(
-            int(size * (size - 1) / 2)), 'run:', str(1))  # , 'diff_edges: ', str(len(np.unique(distance_matrix)))
+    print('generic-' + metric,'-'+['ranks','distances'][is_ranks], '. Ranking:', min_ranking, '/', max_ranking, '+ step', step_ranking,'/',step_factor , '  size: ', str(size),
+          ' edges: ', str(int(size * (size - 1) / 2)), 'run:', str(1))  # , 'diff_edges: ', str(len(np.unique(distance_matrix)))
 
     even_rankability_ = even_rankability(distance_matrix, min_flatting=min_ranking, max_neighbors_search=max_ranking,
-                                         step_ranking=step_ranking, verbose=verbose)
+                                         step_ranking=step_ranking, step_factor=step_factor, is_ranks=is_ranks, verbose=verbose)
 
     run_times -= 1
     i = 1
     while run_times > 0:
-        even_rankability_ = even_rankability(even_rankability_, min_flatting=min_ranking,
-                                             max_neighbors_search=max_ranking, step_ranking=step_ranking,
-                                             verbose=verbose)
+        even_rankability_ = even_rankability(even_rankability_, min_flatting=min_ranking, max_neighbors_search=max_ranking,
+                                         step_ranking=step_ranking, step_factor=step_factor, is_ranks=is_ranks, verbose=verbose)
         i += 1
         run_times -= 1
         print('run:', str(i))  # , 'diff_edges: ', str(len(np.unique(even_rankability_)))
@@ -408,7 +404,9 @@ def check_precomputed_distance_matrix(X):
     check_array(tmp)
 
 
-def druhg(X, max_ranking=16, min_ranking=None, min_samples=5, step_ranking=None, alpha=1.0,
+def druhg(X, max_ranking=16, min_ranking=None, min_samples=5, step_ranking=None,
+          step_factor=None, is_ranks=False,
+          alpha=1.0,
           metric='minkowski', p=2, run_times=0, leaf_size=40,
           algorithm='best', verbose=False, memory=Memory(cachedir=None, verbose=0),
           approx_min_span_tree=True, gen_min_span_tree=False,
@@ -433,6 +431,12 @@ def druhg(X, max_ranking=16, min_ranking=None, min_samples=5, step_ranking=None,
 
     step_ranking : int, optional (default=None)
         The extra number of ranks to step down.
+    
+    step_factor : int, optional (default=None)
+        The extra factor of ranks to step down
+        
+    is_ranks : boolean, (default=False)
+        Use of ranks instead of distances
 
     min_samples : int, optional (default=5)
         The number of samples in a neighborhood for a point
@@ -557,7 +561,7 @@ def druhg(X, max_ranking=16, min_ranking=None, min_samples=5, step_ranking=None,
     if min_samples is None:
         min_samples = 2
     if type(min_samples) is not int:
-        raise ValueError('Min samples must be integers!')
+        raise ValueError('Min samples must be integer!')
     if min_samples <= 0:
         raise ValueError('Min samples must be positive integer')
     min_samples = min(size, min_samples)
@@ -570,7 +574,7 @@ def druhg(X, max_ranking=16, min_ranking=None, min_samples=5, step_ranking=None,
         raise ValueError('Max ranking must be non-negative integer!')
 
     if min_ranking is not None and type(min_ranking) is not int:
-        raise ValueError('Min ranking must be integers!')
+        raise ValueError('Min ranking must be integer!')
     if min_ranking is None:
         min_ranking = 1
     if min_ranking == 0:
@@ -579,9 +583,19 @@ def druhg(X, max_ranking=16, min_ranking=None, min_samples=5, step_ranking=None,
         raise ValueError('Min ranking must be positive integer')
 
     if step_ranking is not None and type(step_ranking) is not int:
-        raise ValueError('Step ranking must be integers!')
+        raise ValueError('Step ranking must be integer!')
     if step_ranking is None:
         step_ranking = 0
+
+    if step_factor is not None and type(step_factor) is not int:
+        raise ValueError('Step factor must be integer!')
+    if step_factor is None:
+        step_factor = 0
+
+    if is_ranks is not None and type(is_ranks) is not bool:
+        raise ValueError('Is ranks must be boolean!')   
+    if is_ranks is None:
+        is_ranks = False
 
     if not isinstance(alpha, float) or alpha <= 0.0:
         raise ValueError('Alpha must be a positive float value greater than'
@@ -641,15 +655,15 @@ def druhg(X, max_ranking=16, min_ranking=None, min_samples=5, step_ranking=None,
         (single_linkage_tree,
          result_min_span_tree) = memory.cache(
             _druhg_none)(X, alpha, metric,
-                         p, max_ranking, min_ranking, run_times, leaf_size, gen_min_span_tree, **kwargs)
+                         p, gen_min_span_tree, **kwargs)
     elif algorithm == 'generic':
         if max_ranking is None:
             max_ranking = size - 1
         (single_linkage_tree,
          result_min_span_tree) = memory.cache(
             _druhg_generic)(X, alpha, metric,
-                            p, max_ranking, min_ranking, step_ranking, run_times, leaf_size, gen_min_span_tree, verbose,
-                            **kwargs)
+                            p, max_ranking, min_ranking, step_ranking, step_factor, is_ranks, run_times, leaf_size, gen_min_span_tree, verbose,
+                            **kwargs)       
     elif algorithm == 'boruvka_kdtree':
         if metric not in BallTree.valid_metrics:
             raise ValueError("Cannot use Boruvka with KDTree for this"
@@ -698,7 +712,9 @@ def druhg(X, max_ranking=16, min_ranking=None, min_samples=5, step_ranking=None,
 
 
 class DRUHG(BaseEstimator, ClusterMixin):
-    def __init__(self, max_ranking=16, min_ranking=None, step_ranking=None, min_samples=5,
+    def __init__(self, max_ranking=16, min_ranking=None, step_ranking=None,
+                 step_factor=None, is_ranks=False,                 
+                 min_samples=5,
                  metric='euclidean', alpha=1.0, p=None,
                  algorithm='best', run_times=0, leaf_size=40,
                  memory=Memory(cachedir=None, verbose=0),
@@ -712,6 +728,8 @@ class DRUHG(BaseEstimator, ClusterMixin):
         self.max_ranking = max_ranking
         self.min_ranking = min_ranking
         self.step_ranking = step_ranking
+        self.step_factor = step_factor
+        self.is_ranks = is_ranks
         self.min_samples = min_samples
         self.alpha = alpha
         self.run_times = run_times
