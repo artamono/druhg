@@ -15,7 +15,7 @@ from scipy.sparse import lil_matrix as sparse_matrix
 import gc
 
 
-def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, step_ranking=0, verbose=True):
+def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, step_ranking=0, step_factor=0, is_ranks=False, verbose=True):
     """Compute the weighted adjacency matrix of the even rankability
     graph of a distance matrix.
 
@@ -32,6 +32,12 @@ def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, st
 
     max_neighbors_search: nint, optional (default=0)
         The max_neighbors_search parameter of DRUHG - how many neighbors of the point to match their ranks with
+
+    is_ranks: boolean, optional (default=0)
+        Ranks instead of distances
+
+    step_factor: nint, optional (default=0)
+        Rank downgrade factor coefficient
 
 
     Returns
@@ -52,10 +58,12 @@ def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, st
         min_flatting = size - 1 # this will give a funny result )))
 
     result = np.copy(distance_matrix)
-    net_ranks = 1
 
     # sorting is not working properly because of double to float cython convertion, argsort is ok
     sortedM = np.argsort(result, axis=1)
+
+    if is_ranks:
+        result.fill(size)
 
     progress = -1
     if verbose:
@@ -84,20 +92,25 @@ def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, st
             while distance_matrix[j][sortedM[j][rank_j - 1]]==distance:
                 rank_j -= 1
 
+            rank_min = rank_i
             rank_max = rank_j
 
             if rank_i > rank_j:
+                rank_min = rank_j
                 rank_max = rank_i
 
-            if rank_max + step_ranking > size:
+            if rank_max + step_ranking + step_factor*(rank_max - rank_min) > size:
                 rank_max = size - 1
             else:
-                rank_max += step_ranking
+                rank_max += step_ranking + step_factor*(rank_max - rank_min)
 
             if rank_max < min_flatting:
                 rank_max = min_flatting
 
-            result[i][j] = result[j][i] = np.max([distance_matrix[j][sortedM[j][rank_max]],distance_matrix[i][sortedM[i][rank_max]]])
+            if is_ranks:
+                result[i][j] = result[j][i] = rank_max
+            else:
+                result[i][j] = result[j][i] = np.max([distance_matrix[j][sortedM[j][rank_max]],distance_matrix[i][sortedM[i][rank_max]]])
 
     if verbose:
         sys.stderr.write(str(100)+'% ',)
