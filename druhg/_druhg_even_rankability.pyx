@@ -14,8 +14,8 @@ import sys
 from scipy.sparse import lil_matrix as sparse_matrix
 import gc
 
-
-def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, step_ranking=0, step_factor=0, is_ranks=False, verbose=True):
+def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, step_ranking=0, step_factor=0,
+                     distance_factor=0.0, is_ranks=False, verbose=True):
     """Compute the weighted adjacency matrix of the even rankability
     graph of a distance matrix.
 
@@ -39,6 +39,8 @@ def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, st
     step_factor: nint, optional (default=0)
         Rank downgrade factor coefficient
 
+    distance_factor: float, optional (default=0.)
+        Distance factor to extent neighbors ranks
 
     Returns
     -------
@@ -47,7 +49,7 @@ def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, st
 
     """
 
-    assert(distance_matrix.shape[0] == distance_matrix.shape[1])
+    assert (distance_matrix.shape[0] == distance_matrix.shape[1])
 
     size = distance_matrix.shape[0]
     if max_neighbors_search <= 0:
@@ -55,7 +57,7 @@ def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, st
     max_neighbors_search = np.min([max_neighbors_search, size - 1])
 
     if min_flatting > size - 1:
-        min_flatting = size - 1 # this will give a funny result )))
+        min_flatting = size - 1  # this will give a funny result )))
 
     result = np.copy(distance_matrix)
 
@@ -67,42 +69,55 @@ def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, st
 
     progress = -1
     if verbose:
-        sys.stderr.write('progress: ',)
+        sys.stderr.write('progress: ', )
 
     for i in range(1, size):
         if verbose:
-            newV = 100*i//size//5
+            newV = 100 * i // size // 5
             if progress < newV:
                 progress = newV
                 if progress % 2:
-                    sys.stderr.write('%',)
+                    sys.stderr.write('%', )
                 else:
-                    sys.stderr.write(str(progress*5),)
+                    sys.stderr.write(str(progress * 5), )
 
         for ki in range(1, max_neighbors_search + 1):
-            j = sortedM[i,ki]
+            j = sortedM[i, ki]
 
             distance = distance_matrix[i][j]
 
-            rank_i = ki
-            rank_j = np.where(sortedM[j]==i)[0][0]
+            rank_i = 0
+            rank_j = 0
 
-            while distance_matrix[i][sortedM[i][rank_i - 1]]==distance:
-                rank_i -= 1
-            while distance_matrix[j][sortedM[j][rank_j - 1]]==distance:
-                rank_j -= 1
+            if distance_factor == 0.0:
+                rank_i = ki
+                rank_j = np.where(sortedM[j] == i)[0][0]
 
-            rank_min = rank_i
+                while distance_matrix[i][sortedM[i][rank_i - 1]] == distance:
+                    rank_i -= 1
+                while distance_matrix[j][sortedM[j][rank_j - 1]] == distance:
+                    rank_j -= 1
+            else:
+                distance = distance + distance * distance_factor
+                rank_i = size - 1
+                for ii in range(ki, size):
+                    if distance_matrix[i][sortedM[i][ii]] > distance:
+                        rank_i = ii - 1
+                        break
+                rank_j = size - 1
+                for ii in range(ki, size):
+                    if distance_matrix[j][sortedM[j][ii]] > distance:
+                        rank_j = ii - 1
+                        break
+
             rank_max = rank_j
 
             if rank_i > rank_j:
-                rank_min = rank_j
                 rank_max = rank_i
 
-            if rank_max + step_ranking + step_factor*(rank_max - rank_min) > size:
+            rank_max += step_ranking + step_factor * rank_max
+            if rank_max >= size:
                 rank_max = size - 1
-            else:
-                rank_max += step_ranking + step_factor*(rank_max - rank_min)
 
             if rank_max < min_flatting:
                 rank_max = min_flatting
@@ -110,12 +125,12 @@ def even_rankability(distance_matrix, min_flatting=0, max_neighbors_search=0, st
             if is_ranks:
                 result[i][j] = result[j][i] = rank_max
             else:
-                result[i][j] = result[j][i] = np.max([distance_matrix[j][sortedM[j][rank_max]],distance_matrix[i][sortedM[i][rank_max]]])
+                result[i][j] = result[j][i] = np.max(
+                    [distance_matrix[j][sortedM[j][rank_max]], distance_matrix[i][sortedM[i][rank_max]]])
 
     if verbose:
-        sys.stderr.write(str(100)+'% ',)
-    return result #net_ranks#, pushed_ranks, pusher_ranks,
-
+        sys.stderr.write(str(100) + '% ', )
+    return result  #net_ranks#, pushed_ranks, pusher_ranks,
 
 def even_rankability_old(distance_matrix, min_flatting=0, verbose = True):
     # no max_neighbors_search
@@ -147,40 +162,40 @@ def even_rankability_old(distance_matrix, min_flatting=0, verbose = True):
 
     """
 
-    assert(distance_matrix.shape[0] == distance_matrix.shape[1])
+    assert (distance_matrix.shape[0] == distance_matrix.shape[1])
 
     size = distance_matrix.shape[0]
 
     if min_flatting > size - 1:
-        min_flatting = size - 1 # this will give a funny result )))
+        min_flatting = size - 1  # this will give a funny result )))
 
     result = np.copy(distance_matrix)
     net_ranks = 1
 
-# sorting is not working properly because of double to float cython convertion, argsort is ok
+    # sorting is not working properly because of double to float cython convertion, argsort is ok
     sortedM = np.argsort(result, axis=1)
 
     progress = -1
 
-    for i in range(size-1):
+    for i in range(size - 1):
         if verbose:
-            newV = 100*i//size//10
+            newV = 100 * i // size // 10
             if progress < newV:
                 progress = newV
-                sys.stderr.write (str(progress*10)+'%',)
+                sys.stderr.write(str(progress * 10) + '%', )
 
-        for j in range(i+1, size):
+        for j in range(i + 1, size):
             distance = distance_matrix[i][j]
 
             # rank_i = len(distance_matrix[distance_matrix[i]<distance])
             # rank_j = len(distance_matrix[distance_matrix[j]<distance])
 
-            rank_i = np.where(sortedM[i]==j)[0][0]
-            rank_j = np.where(sortedM[j]==i)[0][0]
+            rank_i = np.where(sortedM[i] == j)[0][0]
+            rank_j = np.where(sortedM[j] == i)[0][0]
 
-            while (distance_matrix[i][sortedM[i][rank_i - 1]]==distance):
+            while (distance_matrix[i][sortedM[i][rank_i - 1]] == distance):
                 rank_i -= 1
-            while (distance_matrix[j][sortedM[j][rank_j - 1]]==distance):
+            while (distance_matrix[j][sortedM[j][rank_j - 1]] == distance):
                 rank_j -= 1
 
             if rank_i > rank_j:
@@ -218,9 +233,8 @@ def even_rankability_old(distance_matrix, min_flatting=0, verbose = True):
 
             # distance = np.max([distance_matrix[i][sortedM[i][rank]],distance_matrix[j][sortedM[j][rank]]])
     if verbose:
-        sys.stderr.write(str(100)+'% ',)
-    return result, net_ranks#, pushed_ranks, pusher_ranks,
-
+        sys.stderr.write(str(100) + '% ', )
+    return result, net_ranks  #, pushed_ranks, pusher_ranks,
 
 def even_rankability_ranks(distance_matrix, min_flatting=0):
     """Compute the weighted adjacency matrix of the even rankability
@@ -248,21 +262,21 @@ def even_rankability_ranks(distance_matrix, min_flatting=0):
 
     """
 
-    assert(distance_matrix.shape[0] == distance_matrix.shape[1])
+    assert (distance_matrix.shape[0] == distance_matrix.shape[1])
 
     size = distance_matrix.shape[0]
 
-    if min_flatting>size:
-        min_flatting = size # this will give a funny result )))
+    if min_flatting > size:
+        min_flatting = size  # this will give a funny result )))
 
     result = np.copy(distance_matrix)
     net_ranks = 0
 
-# sorting is not working properly because of double to float cython convertion, argsort is ok
+    # sorting is not working properly because of double to float cython convertion, argsort is ok
     sortedM = np.argsort(result, axis=1)
 
-    for i in range(0, size-1):
-        for j in range(i+1, size):
+    for i in range(0, size - 1):
+        for j in range(i + 1, size):
             distance = distance_matrix[i][j]
 
             # rank_i = len(distance_matrix[distance_matrix[i]<distance])
@@ -271,12 +285,12 @@ def even_rankability_ranks(distance_matrix, min_flatting=0):
             rank = 0
             rr = 0
 
-            rank_i = np.where(sortedM[i]==j)[0][0]
-            rank_j = np.where(sortedM[j]==i)[0][0]
+            rank_i = np.where(sortedM[i] == j)[0][0]
+            rank_j = np.where(sortedM[j] == i)[0][0]
 
-            while (distance_matrix[i][sortedM[i][rank_i - 1]]==distance):
+            while (distance_matrix[i][sortedM[i][rank_i - 1]] == distance):
                 rank_i -= 1
-            while (distance_matrix[j][sortedM[j][rank_j - 1]]==distance):
+            while (distance_matrix[j][sortedM[j][rank_j - 1]] == distance):
                 rank_j -= 1
 
             # if rank_i > rank_j:
@@ -284,36 +298,36 @@ def even_rankability_ranks(distance_matrix, min_flatting=0):
             #
             #     if rank < min_flatting:
             #         rank = min_flatting
-                # if (distance != distance_matrix[j][sortedM[j][rank]]):
-                #     result[i][j] = result[j][i] = distance_matrix[j][sortedM[j][rank]]
-                    # rank_j += 1
-                    # while (rank_j <= rank):
-                    #     if (distance != distance_matrix[j][sortedM[j][rank_j]]):
-                    #         rr += 1
-                    #     rank_j += 1
-                    # pushed_ranks[i] += rr
-                    # pusher_ranks[j] += rr
+            # if (distance != distance_matrix[j][sortedM[j][rank]]):
+            #     result[i][j] = result[j][i] = distance_matrix[j][sortedM[j][rank]]
+            # rank_j += 1
+            # while (rank_j <= rank):
+            #     if (distance != distance_matrix[j][sortedM[j][rank_j]]):
+            #         rr += 1
+            #     rank_j += 1
+            # pushed_ranks[i] += rr
+            # pusher_ranks[j] += rr
             # else:
             #     rank = rank_j
             #
             #     if rank < min_flatting:
             #         rank = min_flatting
-                # if (distance != distance_matrix[i][sortedM[i][rank]]):
-                #     result[i][j] = result[j][i] = distance_matrix[i][sortedM[i][rank]]
-                    # rr = 0
-                    # rank_i += 1
-                    # while (rank_i <= rank):
-                    #     if (distance != distance_matrix[i][sortedM[i][rank_i]]):
-                    #         rr += 1
-                    #     rank_i += 1
-                    # pushed_ranks[j] += rr
-                    # pusher_ranks[i] += rr
+            # if (distance != distance_matrix[i][sortedM[i][rank]]):
+            #     result[i][j] = result[j][i] = distance_matrix[i][sortedM[i][rank]]
+            # rr = 0
+            # rank_i += 1
+            # while (rank_i <= rank):
+            #     if (distance != distance_matrix[i][sortedM[i][rank_i]]):
+            #         rr += 1
+            #     rank_i += 1
+            # pushed_ranks[j] += rr
+            # pusher_ranks[i] += rr
 
             # net_ranks += rr
-            result[i][j] = result[j][i] = np.max(rank_i,rank_j,min_flatting)
+            result[i][j] = result[j][i] = np.max(rank_i, rank_j, min_flatting)
             # distance = np.max([distance_matrix[i][sortedM[i][rank]],distance_matrix[j][sortedM[j][rank]]])
 
-    return result, net_ranks#, pushed_ranks, pusher_ranks,
+    return result, net_ranks  #, pushed_ranks, pusher_ranks,
 
 # cpdef sparse_even_rankability(object lil_matrix, np.intp_t min_points=5,
 #                                  float alpha=1.0):
@@ -350,9 +364,8 @@ def even_rankability_ranks(distance_matrix, min_flatting=0):
 #     return result.tocsr()
 
 cpdef np.ndarray[np.double_t, ndim=2] mst_linkage_core(
-                               np.ndarray[np.double_t,
-                                          ndim=2] distance_matrix):
-
+        np.ndarray[np.double_t,
+                   ndim=2] distance_matrix):
     cdef np.ndarray[np.intp_t, ndim=1] node_labels
     cdef np.ndarray[np.intp_t, ndim=1] current_labels
     cdef np.ndarray[np.double_t, ndim=1] current_distances
@@ -374,7 +387,7 @@ cpdef np.ndarray[np.double_t, ndim=2] mst_linkage_core(
     current_distances = np.infty * np.ones(distance_matrix.shape[0])
     current_labels = node_labels
     num_edges = node_labels.shape[0] - 1
-    
+
     for i in range(num_edges):
         label_filter = current_labels != current_node
         current_labels = current_labels[label_filter]
