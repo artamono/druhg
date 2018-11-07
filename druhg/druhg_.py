@@ -131,7 +131,7 @@ def _druhg_none(X, alpha=1.0, metric='minkowski', p=2, gen_min_span_tree=False, 
 
 
 def _druhg_generic(X, alpha=1.0, metric='minkowski', p=2,
-                   max_ranking=0, min_ranking=1, step_ranking=0, step_factor=0, is_ranks=False, run_times=1,
+                   max_ranking=0, min_ranking=1, step_ranking=0, step_factor=0, distance_factor=0.0, is_ranks=False, run_times=1,
                    leaf_size=None, gen_min_span_tree=False, verbose=False, **kwargs):
     if metric == 'minkowski':
         distance_matrix = pairwise_distances(X, metric=metric, p=p)
@@ -155,11 +155,11 @@ def _druhg_generic(X, alpha=1.0, metric='minkowski', p=2,
     #                                            **kwargs)
     size = distance_matrix.shape[0]
 
-    print('generic-' + metric,'-'+['ranks','distances'][is_ranks], '. Ranking:', min_ranking, '/', max_ranking, '+ step', step_ranking,'/',step_factor , '  size: ', str(size),
+    print('generic-' + metric+'-'+['distances','ranks'][is_ranks], '. Ranking:', min_ranking, '/', max_ranking, '+ step', step_ranking,'/',step_factor , '  size: ', str(size),
           ' edges: ', str(int(size * (size - 1) / 2)), 'run:', str(1))  # , 'diff_edges: ', str(len(np.unique(distance_matrix)))
 
     even_rankability_ = even_rankability(distance_matrix, min_flatting=min_ranking, max_neighbors_search=max_ranking,
-                                         step_ranking=step_ranking, step_factor=step_factor, is_ranks=is_ranks, verbose=verbose)
+                                         step_ranking=step_ranking, step_factor=step_factor, distance_factor=distance_factor, is_ranks=is_ranks, verbose=verbose)
 
     run_times -= 1
     i = 1
@@ -405,7 +405,7 @@ def check_precomputed_distance_matrix(X):
 
 
 def druhg(X, max_ranking=16, min_ranking=None, min_samples=5, step_ranking=None,
-          step_factor=None, is_ranks=False,
+          step_factor=None, is_ranks=False, distance_factor=0.0,
           alpha=1.0,
           metric='minkowski', p=2, run_times=0, leaf_size=40,
           algorithm='best', verbose=False, memory=Memory(cachedir=None, verbose=0),
@@ -592,6 +592,9 @@ def druhg(X, max_ranking=16, min_ranking=None, min_samples=5, step_ranking=None,
     if step_factor is None:
         step_factor = 0
 
+    if type(distance_factor) is not float:
+        raise ValueError('Distance factor must be float!')
+
     if is_ranks is not None and type(is_ranks) is not bool:
         raise ValueError('Is ranks must be boolean!')   
     if is_ranks is None:
@@ -662,7 +665,7 @@ def druhg(X, max_ranking=16, min_ranking=None, min_samples=5, step_ranking=None,
         (single_linkage_tree,
          result_min_span_tree) = memory.cache(
             _druhg_generic)(X, alpha, metric,
-                            p, max_ranking, min_ranking, step_ranking, step_factor, is_ranks, run_times, leaf_size, gen_min_span_tree, verbose,
+                            p, max_ranking, min_ranking, step_ranking, step_factor, distance_factor, is_ranks, run_times, leaf_size, gen_min_span_tree, verbose,
                             **kwargs)       
     elif algorithm == 'boruvka_kdtree':
         if metric not in BallTree.valid_metrics:
@@ -713,7 +716,9 @@ def druhg(X, max_ranking=16, min_ranking=None, min_samples=5, step_ranking=None,
 
 class DRUHG(BaseEstimator, ClusterMixin):
     def __init__(self, max_ranking=16, min_ranking=None, step_ranking=None,
-                 step_factor=None, is_ranks=False,                 
+                 step_factor=None,
+                 distance_factor=0.0,
+                 is_ranks=False,
                  min_samples=5,
                  metric='euclidean', alpha=1.0, p=None,
                  algorithm='best', run_times=0, leaf_size=40,
@@ -729,6 +734,7 @@ class DRUHG(BaseEstimator, ClusterMixin):
         self.min_ranking = min_ranking
         self.step_ranking = step_ranking
         self.step_factor = step_factor
+        self.distance_factor = distance_factor
         self.is_ranks = is_ranks
         self.min_samples = min_samples
         self.alpha = alpha
