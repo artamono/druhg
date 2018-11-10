@@ -38,6 +38,9 @@ _druhg_prims = Extension('druhg._druhg_prims',
                              sources=['druhg/_druhg_prims.pyx'])
 _druhg_even_rankability = Extension('druhg._druhg_even_rankability',
                                     sources=['druhg/_druhg_even_rankability.pyx'])
+_druhg_even_subjective_ranking = Extension('druhg._druhg_even_subjective_ranking',
+                                    sources=['druhg/_druhg_even_subjective_ranking.pyx'])
+
 dist_metrics = Extension('druhg.dist_metrics',
                          sources=['druhg/dist_metrics.pyx'])
 
@@ -53,7 +56,7 @@ def requirements():
 
 configuration = {
     'name': 'druhg',
-    'version': '0.9.4',
+    'version': '0.9.6',
     'description': 'Universal density clustering based on even subjective ranking',
     'long_description': readme(),
     'classifiers': [
@@ -84,6 +87,7 @@ configuration = {
                     _druhg_boruvka,
                     _druhg_prims,
                     _druhg_even_rankability,
+                    _druhg_even_subjective_ranking,
                     _prediction_utils,
                     dist_metrics],
     'cmdclass': {'build_ext': CustomBuildExtCommand},
