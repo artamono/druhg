@@ -1,7 +1,7 @@
 # cython: boundscheck=False
 # cython: nonecheck=False
-# Converts edge list into standard hierarchical clustering format
-# Authors: Leland McInnes, Steve Astels
+# Converts edge array into standard hierarchical clustering format
+# Authors: Pavel "DRUHG" Artamonov
 # License: 3-clause BSD
 
 import numpy as np
@@ -14,6 +14,7 @@ cdef class UnionFind (object):
     cdef np.intp_t next_label
     cdef np.intp_t *parent
     cdef np.intp_t *num_points
+    cdef np.intp_t count
 
     def __init__(self, N):
         self.parent_arr = -1 * np.ones(2 * N - 1, dtype=np.intp, order='C')
@@ -40,28 +41,34 @@ cdef class UnionFind (object):
         # label up to the root
         while self.parent_arr[p] != n:
             p, self.parent_arr[p] = self.parent_arr[p], n
+
         return n
 
 
-cpdef np.ndarray[np.double_t, ndim=2] make_hierarchy(np.ndarray[np.double_t, ndim=2] L):
+cpdef np.ndarray[np.double_t, ndim=2] make_hierarchy(np.ndarray[np.double_t, ndim=1] L, np.ndarray[np.double_t, ndim=1] D):
 
+    cdef np.ndarray[np.intp_t, ndim=1] sort_arr
     cdef np.ndarray[np.double_t, ndim=2] result_arr
     cdef np.double_t[:, ::1] result
 
-    cdef np.intp_t N, a, aa, b, bb, index
+    cdef np.intp_t N, aa, b, bb, index
     cdef np.double_t delta
 
-    result_arr = np.zeros((L.shape[0], L.shape[1] + 1))
-    result = (<np.double_t[:L.shape[0], :4:1]> (
+    N = L.shape[0]
+
+    result_arr = np.zeros((N - 1, 4))
+    result = (<np.double_t[:N - 1, :4:1]> (
         <np.double_t *> result_arr.data))
-    N = L.shape[0] + 1
     U = UnionFind(N)
 
-    for index in range(L.shape[0]):
+    sort_arr = np.argsort(D)
 
-        a = <np.intp_t> L[index, 0]
-        b = <np.intp_t> L[index, 1]
-        delta = L[index, 2]
+    for index in range(N-1):
+
+        a = sort_arr[index]
+        b = <np.intp_t> L[a]
+
+        delta = D[a]
 
         aa, bb = U.fast_find(a), U.fast_find(b)
 
