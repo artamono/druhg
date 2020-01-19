@@ -42,7 +42,7 @@ def requirements():
 configuration = {
     'name': 'druhg',
     'version': '0.10',
-    'description': 'Universal density clustering based on dialectical materialism',
+    'description': 'Universal clustering based on dialectical materialism',
     'long_description': readme(),
     'classifiers': [
         'Development Status :: 4 - Beta',
