@@ -6,50 +6,87 @@
     :alt: License
 
 =====
-WORK IN PROGRESS: DRUHG
+DRUHG
 =====
 
-| DRUHG – Density Ranking Universal Hierarchical Grouping. Друг - read as droog, it means friend.
-| Performs clustering based on even subjective rankings of each datapoint and best stability of a minimum spanning tree of even ranking metric space.
+| DRUHG - Dialectical Ranking Universal Hierarchical Grouping (друг).
+| Performs clustering based on subjective rankings of each datapoint and builds minimum spanning tree.
 | **Does not require parameters.**
-| 
-| Builds hierarchical tree based on similarities of "density".
-| 
-| There are no citable publications on this matter, but I would like to create one.
-| If you are registered as an endorser for the cs.CG (Computational Geometry) subject class of
-| arXiv and would like to endorse me, please, follow the link
-| https://arxiv.org/auth/endorse?x=VEHO3C
+| To compensate the inevitability of the result, user can set the limits on the size of the cluster with ``limit1`` and ``limit2``.
+| To get genuine result and genuine outliers set ``limit1`` to 1.
+| Parameter ``fix_outliers`` allows to label outliers to their closest clusters via mstree edge.
 
 -------------
 Basic Concept
 -------------
 
-| The algorithm is based on **the universal society rule: treat others how you want to be treated**.
+| There are some optional tuning parameters but actual algorithm requires none and is universal.
+| It works by applying **the universal society rule: treat others how you want to be treated**.
+| The core of the algorithm is to rank subject's closest subjective similarities and unite subjects into commonalities accordingly.
+| Parameter ``max_ranking`` controls precision vs productivity balance, after some value the precision and the result would not change.
 |
-| Let’s say you have a list of friends and your number one friend is John, but you are number 5 on his friend list, then you would treat him as your number 5 friend.
-| This relationship will create a lot of data. 
-| After that you can find optimal relationship fo each object and add them up to construct the tree.
-| It uses knn queries where k is productivity parameter.
+| Let's say you have a list of friends and your number one friend is John, but you are number 5 on his friend list, then you would treat him as your number 5 friend.
+| todo: insert picture
+| Process of merging subjects and commonalities goes until the whole tree is a commonality.
+| Commonalities that were merged against sizeable commonalities become clusters.
+| Subjects in order to be merged have to be mutually close to each other and have to have the closest relationship among everyone else.
+| They have to reflect from all others and each other, and then because of that become one.
+| The reflections of the subjects are it's key, only by reflecting in the other, the subject unveils it's potential energy.
+| *Cluster is the mutually-close reflections.*
+| Read more in the paper(be aware, it is a translation) https://github.com/artamono/druhg/papers
 
 ----------------
-WIP: How to use DRUHG
+How to use DRUHG
 ----------------
 .. code:: python
 
-    import druhg
-    from sklearn.datasets import make_blobs
-    
-    data, _ = make_blobs(1000)
-    
-    clusterer = druhg.DRUHG()
-    cluster_labels = clusterer.fit(data).labels_
+             import sklearn.datasets as datasets
+             import druhg
+
+             iris = datasets.load_iris()
+             XX = iris['data']
+
+             clusterer = druhg.DRUHG(max_ranking=50)
+             labels = clusterer.fit(XX).labels_
+
+It will build the tree and label the points. Now you can manipulate clusters by relabeling.
+
+.. code:: python
+
+             labels = dr.relabel(limit1=1, limit2=len(XX)/2, fix_outliers=1)
+             ari = adjusted_rand_score(iris['target'], labels)
+             print ('iris ari', ari)
+
+It will relabel the clusters, by restricting their size.
+
+.. code:: python
+
+            from druhg import DRUHG
+            import matplotlib.pyplot as plt
+            import pandas as pd, numpy as np
+
+            XX = pd.read_csv('chameleon.csv', sep='\t', header=None)
+            XX = np.array(XX)
+            clusterer = DRUHG(max_ranking=200)
+            clusterer.fit(XX)
+
+            plt.figure(figsize=(30,16))
+            clusterer.minimum_spanning_tree_.plot(node_size=200)
+
+It will draw mstree with druhg-edges.
+
+.. image:: papers/pics/chameleon.jpg
+    :width: 300px
+    :align: center
+    :height: 200px
+    :alt: chameleon
 
 -----------
 Performance
 -----------
-| It is a bit slow compared to other algorithms but you can run it only once.
-| No parameters - no reruns.
-|
+| It can be slow on a highly structural data.
+| There is a parameters ``max_ranking`` that can be used decreased for a better performance.
+
 ----------
 Installing
 ----------
@@ -90,7 +127,8 @@ The druhg library supports both Python 2 and Python 3.
 Contributing
 ------------
 
-Contributions in any form are welcomed! Assistance with documentation is always welcome. To contribute please `fork the project <https://github.com/artamono/druhg/issues#fork-destination-box>`_ 
+We welcome contributions in any form! Assistance with documentation, particularly expanding tutorials,
+is always welcome. To contribute please `fork the project <https://github.com/artamono/druhg/issues#fork-destination-box>`_ 
 make your changes and submit a pull request. We will do our best to work through any issues with
 you and get your code merged into the main branch.
 

@@ -25,25 +25,10 @@ class CustomBuildExtCommand(build_ext):
         # Call original build_ext command
         build_ext.run(self)
 
-
-_hdbscan_tree = Extension('druhg._hdbscan_tree',
-                          sources=['druhg/_hdbscan_tree.pyx'])
-_druhg_helper = Extension('druhg._druhg_helper',
-                             sources=['druhg/_druhg_helper.pyx'])
-_prediction_utils = Extension('druhg._prediction_utils',
-                              sources=['druhg/_prediction_utils.pyx'])
-_druhg_boruvka = Extension('druhg._druhg_boruvka',
-                             sources=['druhg/_druhg_boruvka.pyx'])
-_druhg_prims = Extension('druhg._druhg_prims',
-                             sources=['druhg/_druhg_prims.pyx'])
-_druhg_even_rankability = Extension('druhg._druhg_even_rankability',
-                                    sources=['druhg/_druhg_even_rankability.pyx'])
-_druhg_even_subjective_ranking = Extension('druhg._druhg_even_subjective_ranking',
-                                    sources=['druhg/_druhg_even_subjective_ranking.pyx'])
-
-dist_metrics = Extension('druhg.dist_metrics',
-                         sources=['druhg/dist_metrics.pyx'])
-
+_druhg_tree = Extension('druhg._druhg_tree',
+                         sources=['druhg/_druhg_tree.pyx'])
+_druhg_label = Extension('druhg._druhg_label',
+                         sources=['druhg/_druhg_label.pyx'])
 
 def readme():
     with open('README.rst') as readme_file:
@@ -56,8 +41,8 @@ def requirements():
 
 configuration = {
     'name': 'druhg',
-    'version': '0.9.6',
-    'description': 'Universal density clustering based on even subjective ranking',
+    'version': '0.10',
+    'description': 'Universal clustering based on dialectical materialism',
     'long_description': readme(),
     'classifiers': [
         'Development Status :: 4 - Beta',
@@ -77,23 +62,16 @@ configuration = {
     ],
     'keywords': 'cluster clustering density hierarchical',
     'url': 'https://github.com/artamono/druhg',
-    'maintainer': 'Pavel Artamonov',
-    'maintainer_email': 'main.edgehog.net@gmail.com',
+    'maintainer': 'Pavel "DRUHG" Artamonov',
+    'maintainer_email': 'druhg.p@gmail.com',
     'license': 'BSD',
     'packages': ['druhg', 'druhg.tests'],
     'install_requires': requirements(),
-    'ext_modules': [_hdbscan_tree,
-                    _druhg_helper,
-                    _druhg_boruvka,
-                    _druhg_prims,
-                    _druhg_even_rankability,
-                    _druhg_even_subjective_ranking,
-                    _prediction_utils,
-                    dist_metrics],
+    'ext_modules': [_druhg_tree,
+                    _druhg_label],
     'cmdclass': {'build_ext': CustomBuildExtCommand},
     'test_suite': 'nose.collector',
-    'tests_require': ['nose'],
-    'data_files': ('druhg/dist_metrics.pxd',)
+    'tests_require': ['nose']
 }
 
 if not HAVE_CYTHON:
