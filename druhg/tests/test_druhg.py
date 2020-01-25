@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Tests for DRUHG clustering algorithm
 Shamelessly based on (i.e. ripped off from) the HDBSCAN test code ))
@@ -68,7 +67,7 @@ def test_plot_mst():
 def test_2and3():
     XX = [[0.,0.],[1.,1.],[3.,2.],[4.,1.],[5.,2.]]
     XX = np.array(XX)
-    dr = DRUHG(max_ranking=200, limit1 = 1, verbose=False)
+    dr = DRUHG(max_ranking=200, limit1 = 1, limit2 = 1000, verbose=False)
     dr.fit(XX)
     # two clusters
     assert (len(dr.parents_) == 2)
@@ -78,6 +77,7 @@ def test_2and3():
     assert (dr.mst_[6]*dr.mst_[7] == 2)
     labels = dr.labels_
     n_clusters = len(set(labels)) - int(-1 in labels)
+    print('n_clusters', n_clusters)
     assert (n_clusters == 2)
 
 def test_line():
@@ -137,13 +137,14 @@ def test_scaled_square():
         for j in range(0, size):
             XX.append([scale*i,scale*j])
     XX = np.array(XX)
-    dr = DRUHG(max_ranking=200, verbose=False)
+    dr = DRUHG(max_ranking=200, limit2 = size**3, verbose=False)
     dr.fit(XX)
     s = 2*len(XX) - 2
     print (dr.mst_)
     print (dr.mst_[s-1], dr.mst_[s-2], XX[dr.mst_[s-1]], XX[dr.mst_[s-2]])
     labels = dr.labels_
     n_clusters = len(set(labels)) - int(-1 in labels)
+    print ('n_clusters', n_clusters)
     assert (n_clusters==1)
 
 def test_two_squares():
