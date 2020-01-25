@@ -28,9 +28,10 @@ from .plots import MinimumSpanningTree
 
 
 def druhg(X, max_ranking=16,
-          limit1=0, limit2=0, fix_outliers=0,
-          metric='minkowski', p=2, leaf_size=40,
-          algorithm='best', verbose=False, **kwargs):
+          limit1=None, limit2=None, fix_outliers=0,
+          metric='minkowski', p=2,
+          algorithm='best', leaf_size=40,
+          verbose=False, **kwargs):
     """Perform DRUHG clustering from a vector array or distance matrix.
 
     Parameters
@@ -48,12 +49,12 @@ def druhg(X, max_ranking=16,
         Clusters that are smaller than this limit treated as noise.
         Use 1 to find True outliers.
 
-    limit2 : int, optional (default=size)
+    limit2 : int, optional (default=size/2)
         Clusters with size OVER this limit treated as noise.
         Use it to break down big clusters.
 
     fix_outliers: int, optional (default=0)
-        All outliers will be assigned to the nearest cluster
+        In case of 1 - all outliers will be assigned to the nearest cluster
 
     metric : string or callable, optional (default='minkowski')
         The metric to use when calculating distance between instances in a
@@ -79,7 +80,6 @@ def druhg(X, max_ranking=16,
             * ``best``
             * ``kdtree``
             * ``balltree``
-            * ``none``
 
     **kwargs : optional
         Arguments passed to the distance metric
@@ -90,7 +90,7 @@ def druhg(X, max_ranking=16,
         Cluster labels for each point. Noisy samples are given the label -1.
 
     min_spanning_tree : ndarray, shape (2*n_samples)
-        The minimum spanning as edgepairs.
+        The minimum spanning tree as edgepairs.
 
     References
     ----------
@@ -115,17 +115,36 @@ def druhg(X, max_ranking=16,
         if p < 0:
             raise ValueError('Minkowski metric with negative p value is not'
                              ' defined!')
-
+    printout = ''
     if max_ranking is None:
         max_ranking = 16
+        printout += 'max_ranking is set to '+str(max_ranking)+', '
 
     max_ranking = min(size - 1, max_ranking)
+
+    if limit1 is None:
+        limit1 = int(np.sqrt(size))
+        printout += 'limit1 is set to '+str(limit1)+', '
+    else:
+        if type(limit1) is not int:
+             raise ValueError('Limit1 must be integer!')
+        if limit1 < 0:
+            raise ValueError('Limit1 must be non-negative integer!')
+
+    if limit2 is None:
+        limit2 = int(size/2 + 1)
+        printout += 'limit2 is set to '+str(limit2)+', '
+    else:
+        if type(limit2) is not int:
+             raise ValueError('Limit2 must be integer!')
+        if limit2 < 0:
+            raise ValueError('Limit2 must be non-negative integer!')
 
     if algorithm == 'best':
         algorithm = 'kd_tree'
 
     if X.dtype != np.float64:
-        print ('Converting to numpy float64')
+        print ('Converting data to numpy float64')
         X = X.astype(np.float64)
 
     if "precomputed" in algorithm.lower() or "precomputed" in metric.lower() or issparse(X):
@@ -152,7 +171,9 @@ def druhg(X, max_ranking=16,
         else:
             raise TypeError('Unknown algorithm type %s specified' % algorithm)
 
-    print('algorithm', algorithm, tree)
+    if printout:
+        print ('Druhg is using defaults for: ' + printout)
+
     ur = UniversalReciprocity(algorithm, tree, max_ranking, metric, leaf_size//3)
 
     num_edges, pairs = ur.get_tree()
@@ -169,8 +190,8 @@ class DRUHG(BaseEstimator, ClusterMixin):
     def __init__(self, metric='euclidean',
                  algorithm='best',
                  max_ranking=24,
-                 limit1=0,
-                 limit2=0,
+                 limit1=None,
+                 limit2=None,
                  fix_outliers=0,
                  leaf_size=40,
                  verbose=False,
@@ -249,8 +270,8 @@ class DRUHG(BaseEstimator, ClusterMixin):
         print ('todo: not done yet')
         return None
 
-    def relabel(self, parents=None, limit1=0, limit2=0, fix_outliers=0):
-        """Relabeling with the limit of cluster size.
+    def relabel(self, parents=None, limit1=None, limit2=None, fix_outliers=None):
+        """Relabeling with the limits on cluster size.
 
         Parameters
         ----------
@@ -271,8 +292,36 @@ class DRUHG(BaseEstimator, ClusterMixin):
             cluster labels,
             -1 are outliers
         """
-        if parents == None:
+        if parents is None:
             parents = self.parents_
+
+        printout = ''
+        size = self._size
+        if limit1 is None:
+            limit1 = int(np.sqrt(size))
+            printout += 'limit1 is set to ' + str(limit1) + ', '
+        else:
+            if type(limit1) is not int:
+                raise ValueError('Limit1 must be integer!')
+            if limit1 < 0:
+                raise ValueError('Limit1 must be non-negative integer!')
+
+        if limit2 is None:
+            limit2 = int(size / 2 + 1)
+            printout += 'limit2 is set to ' + str(limit2) + ', '
+        else:
+            if type(limit2) is not int:
+                raise ValueError('Limit2 must be integer!')
+            if limit2 < 0:
+                raise ValueError('Limit2 must be non-negative integer!')
+
+        if fix_outliers is None:
+            fix_outliers = 0
+            printout += 'fix_outliers is set to ' + str(fix_outliers)
+
+        if printout:
+            print ('Relabeling using defaults for: ' + printout)
+
         return labeling.do(self._size, self.mst_, self.num_edges_, parents, limit1, limit2, fix_outliers)
 
     @property
