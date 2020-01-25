@@ -29,7 +29,7 @@ Basic Concept
 | todo: insert picture
 | Process of merging subjects and commonalities goes until the whole tree is a commonality.
 | Commonalities that were merged against sizeable commonalities become clusters.
-| Subjects in order to be merged have to be mutually close to each other and have to have the closest relationship among everyone else.  
+| Subjects in order to be merged have to be mutually close to each other and have to have the closest relationship among everyone else.
 | They have to reflect from all others and each other, and then because of that become one.
 | The reflections of the subjects are it's key, only by reflecting in the other, the subject unveils it's potential energy.
 | *Cluster is the mutually-close reflections.*
@@ -52,10 +52,34 @@ How to use DRUHG
 It will build the tree and label the points. Now you can manipulate clusters by relabeling.
 
 .. code:: python
-             
-             labels = dr.relabel(limit1=0, limit2=len(XX)/2, fix_outliers=1)
+
+             labels = dr.relabel(limit1=1, limit2=len(XX)/2, fix_outliers=1)
              ari = adjusted_rand_score(iris['target'], labels)
              print ('iris ari', ari)
+
+It will relabel the clusters, by restricting their size.
+
+.. code:: python
+
+            from druhg import DRUHG
+            import matplotlib.pyplot as plt
+            import pandas as pd, numpy as np
+
+            XX = pd.read_csv('chameleon.csv', sep='\t', header=None)
+            XX = np.array(XX)
+            clusterer = DRUHG(max_ranking=200)
+            clusterer.fit(XX)
+
+            plt.figure(figsize=(30,16))
+            clusterer.minimum_spanning_tree_.plot(node_size=200)
+
+It will draw mstree with druhg-edges.
+
+.. image:: papers/pics/chameleon.jpg
+    :width: 300px
+    :align: center
+    :height: 200px
+    :alt: chameleon
 
 -----------
 Performance
