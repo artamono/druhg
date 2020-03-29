@@ -10,11 +10,7 @@
 import numpy as np
 cimport numpy as np
 
-import pandas as pd
-
 from libc.stdlib cimport malloc, free
-
-from scipy import stats
 
 cdef np.double_t INF = np.inf
 
@@ -173,8 +169,8 @@ cdef class UnionFindMST (object):
         na, nb = self.size[a], self.size[b]
         self.size[i] = na + nb
         dip = 1./np.sqrt(min(na, nb))
-# ----------------------
         new_energy = 0.
+# ----------------------
         old_energy = self.energy[a]
         excess_of_energy = 1. - dip - old_energy
         if excess_of_energy > old_energy:
@@ -377,23 +373,38 @@ cdef class UniversalReciprocity (object):
         return -1
 
     cdef tuple _evaluate_reciprocity(self, i, knn_indices, knn_dist, start_rank = 0):
+
+        cdef np.intp_t ranki, j, opt_edge, \
+            p, parent, parent_opp, \
+            members, opp_members, \
+            rank_left, rank_right, scope_size, \
+            opp_is_reachable, penalty
+
+        cdef np.double_t opt, opt_min, \
+            order, order_min, \
+            dis, rank_dis, \
+            val1, val2
+
         parent = self.U.fast_find(i)
         indices, distances = knn_indices[i], knn_dist[i]
 
         opt, opt_min = INF, INF
         opt_edge = 0
-        opt_rank = self.max_neighbors_search
-        val1, val2, val3 = 1., 1, 1
-        opt_dump = ()
+        val1, val2 = 1., 1.
+        members = 0 + start_rank != 0
 
+        # opt_dump = (i)
         for ranki in range(start_rank, self.max_neighbors_search + 1):
             j = indices[ranki]
+
             if parent == self.U.fast_find(j):
+                members += 1
                 continue
 
             dis = distances[ranki]
 
-            if dis**4*ranki > opt:
+            # if dis**4 * ranki**2 * members >= opt * (ranki - 1):
+            if dis**4 * ranki * members >= opt:
                 break
 
             dis_opp = knn_dist[j]
@@ -404,54 +415,52 @@ cdef class UniversalReciprocity (object):
             if rank_left > rank_right:
                 continue
 
-            scope_size = rank_right - 1
-            rank_dis = distances[scope_size]
+            scope_size = rank_right
+            rank_dis = distances[scope_size - 1]
 
             ind_opp = knn_indices[j]
             parent_opp = self.U.fast_find(j)
 
-            members = 0
+            opp_members = 0
             opp_is_reachable = 0
-            for k, s in enumerate(ind_opp[:rank_right]):
+            for s in ind_opp[:rank_right]:
                 p = self.U.fast_find(s)
-                members += parent_opp==p
+                opp_members += parent_opp==p
                 opp_is_reachable += parent==p
 
             penalty = 0 # penalizing in case of reaching the limit of max_neighbors_search
             if opp_is_reachable == 0: # rank_right >= self.max_neighbors_search:
                 penalty = rank_left
 
-            val1 = rank_dis # без этого не отличить углов от ребер в квадрате
-            val2 = scope_size + penalty # без этого не различить ядро квадрата от ребер
-            val3 = members # без этого не обеспечить равномерного прирастание
+            val1 = rank_dis # [качество] без этого не отличить углов от ребер в квадрате. dis <= rank_dis <= 2*dis
+            val2 = scope_size + penalty # [количество] без этого не различить ядро квадрата от ребер. ranki <= rank_left <= rank_right = scope_size
+            # val3 = 1.*members/opp_members # [мера] без этого не обеспечить равномерное прирастание. 1/scope_size < val3 < scope_size
 
-            order = val1**4
-            order_min = order*val2
-            order = order_min*val2/val3
+            order_min = val1**4 * val2**2 * members
+            order = order_min / opp_members
+            order_min = order_min / (scope_size - 1)
 
             if order_min < opt_min:
                 opt_min = order_min
 
             if order < opt:
                 opt, opt_edge = order, j
-                opt_rank = scope_size
-            # print (i, j, 'vals', val1, val2, val3, 'opts', opt, opt_edge, opt_rank, opt_min)
+                # opt_dump = (i, j, order, val1, val2, members, opp_members)
 
-        return (opt, opt_edge, opt_rank, opt_min)
+            # print (i, j, 'vals', val1, val2, val3, 'mems', members, opp_members, 'order', order, 'opts', opt, opt_edge, opt_rank, opt_min)
+        # print ('opt_dump', opt_dump)
+        return (opt, opt_edge, opt_min)
 
     cdef _compute_tree_edges(self, start_rank = 0):
         # DRUHG
         # computes DRUHG Spanning Tree
 
-        cdef np.intp_t i, j, ranki, rankj, \
-            rank_min, rank_max, lim_rank, \
-            relatives, \
-            opti, optj, \
-            s
-        cdef np.double_t dis, rank_dis, lim_dis, \
-            opt, global_opt, new_opt, \
-            opt1, opt2, val1, val2
-        cdef set objs
+        cdef np.intp_t i, j, \
+            opt_edge, s, \
+            global_i, global_edge
+        cdef np.double_t opt, opt_min, global_opt
+        cdef list cluster_arr
+
         cdef np.ndarray[np.double_t, ndim=1] starting_value_arr
         cdef np.ndarray[np.intp_t, ndim=1] sorted_value_arr
 
@@ -484,7 +493,7 @@ cdef class UniversalReciprocity (object):
                 self.U.reciprocal_emergence_of_energy_of_commonalities(i, j)
                 self.result_add_edge(i, j)
 #### initialization of reciprocities
-            opt, opt_edge, opt_rank, opt_min = self._evaluate_reciprocity(i, knn_indices, knn_dist, start_rank)
+            opt, opt_edge, opt_min = self._evaluate_reciprocity(i, knn_indices, knn_dist, start_rank)
             starting_value[i] = opt_min
         starting_value[self.num_points] = INF
 
@@ -492,19 +501,18 @@ cdef class UniversalReciprocity (object):
             print ('Two subjects only')
             return
 
-        global_opt, global_i, global_edge, global_rank = INF, -1, -1, 1
         while self.result_edges < self.num_points - 1:
-            global_opt, global_i, global_edge, global_rank = INF, -1, -1, 1
+            global_opt, global_i, global_edge = INF, -1, -1
             sorted_value_arr = np.argsort(starting_value_arr)
             sorteds = (<np.intp_t *> sorted_value_arr.data)
 
             s = 0
             i = sorteds[s]
             while starting_value[i] < global_opt:
-                opt, opt_edge, opt_rank, opt_min = self._evaluate_reciprocity(i, knn_indices, knn_dist, start_rank)
+                opt, opt_edge, opt_min = self._evaluate_reciprocity(i, knn_indices, knn_dist, start_rank)
                 starting_value[i] = opt_min
                 if opt < global_opt:
-                    global_i, global_opt, global_edge, global_rank = i, opt, opt_edge, opt_rank
+                    global_i, global_opt, global_edge = i, opt, opt_edge
                 s += 1
                 i = sorteds[s]
 
@@ -514,9 +522,10 @@ cdef class UniversalReciprocity (object):
 
             cluster_arr = self.U.reciprocal_emergence_of_energy_of_commonalities(global_i, global_edge)
             self.result_add_edge(global_i, global_edge)
-            for p in cluster_arr:
-                self.result_add_cluster(p)
-            # print (len(cluster_arr), self.result_edges, self.result_clusters, '======edges======', global_opt, 'i,j', global_i, global_edge, opt_rank, opt_min)
+            for j in cluster_arr:
+                self.result_add_cluster(j)
+            # print ('clusters', self.result_clusters, '(+', len(cluster_arr), ') edges', self.result_edges,  '======opt======', global_opt, 'i,j', global_i, global_edge)
 
         self.result_clustered_energy = self.U.get_last_energy()
         # self.U.universal_completeness()
+        
