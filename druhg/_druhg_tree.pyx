@@ -376,13 +376,13 @@ cdef class UniversalReciprocity (object):
 
         cdef np.intp_t ranki, j, opt_edge, \
             p, parent, parent_opp, \
-            members, opp_members, \
+            members, opp_members, equal_members, \
             rank_left, rank_right, scope_size, \
             opp_is_reachable, penalty
 
         cdef np.double_t opt, opt_min, \
             order, order_min, \
-            dis, rank_dis, \
+            dis, rank_dis, old_dis, \
             val1, val2
 
         parent = self.U.fast_find(i)
@@ -392,16 +392,23 @@ cdef class UniversalReciprocity (object):
         opt_edge = 0
         val1, val2 = 1., 1.
         members = 0 + start_rank != 0
+        equal_members = 0
+        old_dis = 0.
 
         # opt_dump = (i)
         for ranki in range(start_rank, self.max_neighbors_search + 1):
             j = indices[ranki]
 
-            if parent == self.U.fast_find(j):
-                members += 1
-                continue
-
             dis = distances[ranki]
+
+            if dis != old_dis:
+                members += equal_members
+                old_dis = dis
+                equal_members = 0
+
+            if parent == self.U.fast_find(j):
+                equal_members += 1
+                continue
 
             # if dis**4 * ranki**2 * members >= opt * (ranki - 1):
             if dis**4 * ranki * members >= opt:
@@ -415,8 +422,8 @@ cdef class UniversalReciprocity (object):
             if rank_left > rank_right:
                 continue
 
-            scope_size = rank_right
-            rank_dis = distances[scope_size - 1]
+            scope_size = rank_right - 1
+            rank_dis = distances[scope_size]
 
             ind_opp = knn_indices[j]
             parent_opp = self.U.fast_find(j)
@@ -433,12 +440,12 @@ cdef class UniversalReciprocity (object):
                 penalty = rank_left
 
             val1 = rank_dis # [качество] без этого не отличить углов от ребер в квадрате. dis <= rank_dis <= 2*dis
-            val2 = scope_size + penalty # [количество] без этого не различить ядро квадрата от ребер. ranki <= rank_left <= rank_right = scope_size
+            val2 = rank_right + penalty # [количество] без этого не различить ядро квадрата от ребер. ranki <= rank_left <= rank_right = scope_size
             # val3 = 1.*members/opp_members # [мера] без этого не обеспечить равномерное прирастание. 1/scope_size < val3 < scope_size
 
             order_min = val1**4 * val2**2 * members
             order = order_min / opp_members
-            order_min = order_min / (scope_size - 1)
+            order_min = order_min / scope_size
 
             if order_min < opt_min:
                 opt_min = order_min
@@ -528,4 +535,3 @@ cdef class UniversalReciprocity (object):
 
         self.result_clustered_energy = self.U.get_last_energy()
         # self.U.universal_completeness()
-        
