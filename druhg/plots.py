@@ -26,9 +26,13 @@ class MinimumSpanningTree(object):
                 data_for_projection = self._data
 
             projection = TSNE().fit_transform(data_for_projection)
-        else:
+        elif self._data.shape[1] == 2:
             projection = self._data.copy()
-        #     projection = dict(enumerate(projection))
+        else:
+            # one dimensional. We need to add dimension
+            projection = self._data.copy()
+            projection = np.array([e for e in enumerate(projection)])
+
         return projection
 
     def get_node_colors(self, labels):
@@ -105,26 +109,28 @@ class MinimumSpanningTree(object):
         meana = meana + delta * nb / (na + nb)
         return meana
 
-    def draw_druhg_edges(self, ax, pairs, pos, lw=1., alpha=0.7):
+    def draw_druhg_edges(self, ax, pairs, pos, lw=20., alpha=0.4):
         try:
             from matplotlib import collections as mc
+            from matplotlib.pyplot import Arrow
         except ImportError:
             raise ImportError('You must install the matplotlib library to plot the minimum spanning tree.')
 
         size = len(pairs) / 2 + 1
         full_size = size
-        uf, sz, ms = np.zeros(2 * size, dtype=int), np.ones(size), np.zeros(size)
+        uf, sz = np.zeros(2 * size, dtype=int), np.ones(size)
         next_label = size + 1
 
-        lines, line_widths, line_colors = [], [], []
-        heads, heads_widths, heads_colors = [], [], []
-        default_color, cluster_color = (0, 0, 0), (1., 0., 0.)
-        head_scale, head_alpha = 4., 0.8 * alpha
+        default_color = (0, 0, 0, alpha)
+        min_arrow_width = 0.002
+        max_arrow_width = lw
+        max_collision = np.sqrt(size)
+        thick_a = (max_arrow_width - min_arrow_width)/(1.*max_collision - 1)
+        thick_b = max_arrow_width - 1.*max_collision*thick_a
         for j in range(0, size - 1):
             a, b = pairs[2 * j], pairs[2 * j + 1]
             start, end = pos[a], pos[b]
 
-            hh = []
             i = next_label - full_size
             aa, bb = self.fast_find(uf, a), self.fast_find(uf, b)
 
@@ -135,74 +141,17 @@ class MinimumSpanningTree(object):
 
             na, nb = sz[a], sz[b]
             sz[i] = na + nb
+
             size_reflection = np.sqrt(min(na, nb))
-            dip = 1. / np.sqrt(min(na, nb))
-            # ----------------------
-            new_mass = 0.
-            old_mass = ms[a]
-            excess_of_mass = 1. - dip - old_mass
-            if excess_of_mass > old_mass:
-                new_mass = excess_of_mass
-                hh.append(0)
-            else:
-                new_mass = old_mass
-            # ----------------------
-            old_mass = ms[b]
-            excess_of_mass = 1. - dip - old_mass
-            if excess_of_mass > old_mass:
-                new_mass = self.merge_means(na, new_mass, nb, excess_of_mass)
-                hh.append(1)
-            else:
-                new_mass = self.merge_means(na, new_mass, nb, old_mass)
-            # ----------------------
-            ms[i] = new_mass
+            w = size_reflection*thick_a + thick_b
+            arr = Arrow(start[0], start[1], end[0] - start[0], end[1] - start[1], color = default_color, width=w)
+            ax.add_patch(arr)
 
-            # visualisation
-            hw = min(size_reflection * lw * head_scale, 1.5 * lw * size_reflection)
-            if (na == 1 and nb == 1) or len(hh) != 1:  # double cluster reflection or ...
-                col = cluster_color
-                if len(hh) == 0:  # outliers
-                    col = default_color
-                if na == 1 and nb == 1:  # double headed. Pure reciprocity
-                    heads.append([start, ((start + end) / 2 + start) / 2])
-                    heads_widths.append(hw)
-                    heads_colors.append(col + (head_alpha,))
-
-                lines.append([start, end])
-                line_widths.append(size_reflection * lw)
-                line_colors.append(col + (alpha,))
-                heads.append([((start + end) / 2 + end) / 2, end])
-                heads_widths.append(hw)
-                heads_colors.append(col + (head_alpha,))
-            else:  # there are two halves of different colors
-                col = default_color
-                if hh[0] == 0:
-                    col = cluster_color
-                lines.append([start, (start + end) / 2])
-                line_widths.append(size_reflection * lw)
-                line_colors.append(col + (alpha,))
-                # the other half
-                if col == cluster_color:
-                    col = default_color
-                else:
-                    col = cluster_color
-                lines.append([(start + end) / 2, end])
-                line_widths.append(size_reflection * lw)
-                line_colors.append(col + (alpha,))
-                heads.append([((start + end) / 2 + end) / 2, end])
-                heads_widths.append(hw)
-                heads_colors.append(col + (head_alpha,))
-
-        lc = mc.LineCollection(lines, colors=line_colors, linewidths=line_widths)
-        ax.add_collection(lc)
-
-        lc = mc.LineCollection(heads, colors=heads_colors, linewidths=heads_widths)
-        ax.add_collection(lc)
 
         # line_collection.set_array(self._mst[:, 2].T)
 
     def plot(self, axis=None, node_size=40, node_color=None,
-             node_alpha=0.8, edge_alpha = 0.8, edge_linewidth=2, vary_line_width=True,
+             node_alpha=0.8, edge_alpha = 0.4, edge_linewidth=8, vary_line_width=True,
              core_color = 'purple'):
         """Plot the minimum spanning tree (as projected into 2D by t-SNE if required).
 
@@ -222,7 +171,7 @@ class MinimumSpanningTree(object):
         node_alpha : float, optional (default 0.8)
                 The alpha value (between 0 and 1) to render nodes with.
 
-        edge_alpha : float, optional (default 0.8)
+        edge_alpha : float, optional (default 0.4)
                 The alpha value (between 0 and 1) to render nodes with.
 
         edge_linewidth : float, optional (default 2)
