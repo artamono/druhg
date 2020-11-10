@@ -25,10 +25,14 @@ class CustomBuildExtCommand(build_ext):
         # Call original build_ext command
         build_ext.run(self)
 
+
 _druhg_tree = Extension('druhg._druhg_tree',
                          sources=['druhg/_druhg_tree.pyx'])
 _druhg_label = Extension('druhg._druhg_label',
                          sources=['druhg/_druhg_label.pyx'])
+_druhg_amalgamation = Extension('druhg._druhg_amalgamation',
+                         sources=['druhg/_druhg_amalgamation.pyx'])
+
 
 def readme():
     with open('README.rst') as readme_file:
@@ -41,7 +45,7 @@ def requirements():
 
 configuration = {
     'name': 'druhg',
-    'version': '1.0.1',
+    'version': '1.1.1',
     'description': 'Universal clustering based on dialectical materialism',
     'long_description': readme(),
     'classifiers': [
@@ -68,7 +72,8 @@ configuration = {
     'packages': ['druhg', 'druhg.tests'],
     'install_requires': requirements(),
     'ext_modules': [_druhg_tree,
-                    _druhg_label],
+                    _druhg_label,
+                    _druhg_amalgamation],
     'cmdclass': {'build_ext': CustomBuildExtCommand},
     'test_suite': 'nose.collector',
     'tests_require': ['nose']

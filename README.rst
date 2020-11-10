@@ -41,8 +41,6 @@ Basic Concept
 | where you can read on:
 | - triad Quality-Quantity-Measure (distance-rank-memberships)
 | - triad Singular-Particular-Universal (subject-cluster-dataset)
-| - Mass-Energy relation
-| - prospects of adding Time and Motion to break conventional Physics
 | - and more
 |
 
