@@ -25,7 +25,7 @@ from sklearn import preprocessing
 
 import bisect
 
-from sklearn.externals.joblib import Parallel, delayed
+# from sklearn.externals.joblib import Parallel, delayed
 
 cdef class PairwiseDistanceTreeSparse(object):
     cdef object data_arr
