@@ -3,23 +3,22 @@ Tests for DRUHG clustering algorithm
 Shamelessly based on (i.e. ripped off from) the HDBSCAN test code ))
 """
 # import pickle
-from nose.tools import assert_less
-from nose.tools import assert_greater_equal
-from nose.tools import assert_not_equal
 import numpy as np
 import pandas as pd
 from scipy.spatial import distance
 from scipy import sparse
 from scipy import stats
-from sklearn.utils.estimator_checks import check_estimator
-from sklearn.utils.testing import (assert_equal,
-                                   assert_array_equal,
-                                   assert_array_almost_equal,
-                                   assert_raises,
-                                   assert_in,
-                                   assert_not_in,
-                                   assert_no_warnings,
-                                   if_matplotlib)
+import pytest
+
+# from sklearn.utils.estimator_checks import check_estimator
+# from sklearn.utils.testing import (assert_equal,
+#                                    assert_array_equal,
+#                                    assert_array_almost_equal,
+#                                    assert_raises,
+#                                    assert_in,
+#                                    assert_not_in,
+#                                    assert_no_warnings,
+#                                    if_matplotlib)
 from druhg import (DRUHG,
                    druhg)
 
@@ -35,7 +34,6 @@ from sklearn.metrics import adjusted_rand_score
 
 from tempfile import mkdtemp
 from functools import wraps
-from nose import SkipTest
 
 import warnings
 
@@ -56,7 +54,7 @@ def test_iris():
     print ('iris ari', ari)
     assert (ari >= 0.50)
     # breaking biggest cluster
-    labels = dr.relabel(limit1=0, limit2=len(XX)/2, fix_outliers=1)
+    labels = dr.relabel(limit1=0, limit2=int(len(XX)/2), fix_outliers=1)
     ari = adjusted_rand_score(iris['target'], labels)
     print ('iris ari', ari)
     assert (ari >= 0.85)
@@ -386,7 +384,7 @@ def test_druhg_distance_matrix():
     print (n_clusters)
 
 
-    assert_equal(n_clusters, 4)
+    assert(n_clusters==4)
 
     dr = DRUHG(metric="precomputed", limit1=5).fit(D)
     labels = dr.labels_
@@ -398,7 +396,7 @@ def test_druhg_distance_matrix():
         dr.minimum_spanning_tree_.plot()
         plt.savefig('test_druhg_distance_matrix.png')
 
-    assert_equal(n_clusters, 4)
+    assert(n_clusters==4)
 
 def test_moons_and_blobs():
     XX = X
@@ -448,7 +446,7 @@ def test_chameleon():
         dr.minimum_spanning_tree_.plot()
         plt.savefig('test_cham.png')
 
-    dr = DRUHG( max_ranking=200, limit1 = 1, limit2=len(XX)/4, exclude=[], verbose=False)
+    dr = DRUHG( max_ranking=200, limit1 = 1, limit2=int(len(XX)/4), exclude=[], verbose=False)
     dr.fit(XX)
 
     if _plot_graph:
@@ -504,4 +502,3 @@ def test_compound():
     # np.save('labels_compound', labels)
     print('n_clusters', n_clusters)
     assert (n_clusters==5)
-
