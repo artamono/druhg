@@ -5,7 +5,7 @@
 
 import numpy as np
 
-from scipy.cluster.hierarchy import dendrogram
+# from scipy.cluster.hierarchy import dendrogram
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 from warnings import warn
