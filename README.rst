@@ -24,7 +24,7 @@ Basic Concept
 | It works by applying **the universal society rule: treat others how you want to be treated**.
 | The core of the algorithm is to rank the subject's closest subjective similarities and unite subjects into commonalities accordingly.
 | Parameter ``max_ranking`` controls precision vs productivity balance, after some value the precision and the result would not change.
-|
+
 | Let's say you have a list of friends and your number one friend is John, but you are number 5 on his friend list, then you would treat him as your number 5 friend.
 | todo: insert picture
 | Clustering made by self-unrolling the relationships between the objects.
@@ -34,15 +34,14 @@ Basic Concept
 | They have to reflect from all others and each other, and then because of that become one.
 | The subject unveils it's potential energy only after he reflects of others.
 | Therefore *Cluster is a mutually-close reflections.*
-|
+
 | To come up with this universal solution philosophy of dialectical materialism was used.
-| You can read more about it in this work
-| (https://github.com/artamono/druhg/papers/su_bumaga.md)
+| You can read more about it in this work. In Russian
+| (https://druhg.readthedocs.io/en/latest/dialectic_of_data.html)
 | where you can read on:
 | - triad Quality-Quantity-Measure (distance-rank-memberships)
 | - triad Singular-Particular-Universal (subject-cluster-dataset)
 | - and more
-|
 
 ----------------
 How to use DRUHG
@@ -115,13 +114,12 @@ The package tests can be run after installation using the command:
 
 .. code:: bash
 
-    nosetests -s druhg
+    pytest -s druhg
 
-or, if ``nose`` is installed but ``nosetests`` is not in your ``PATH`` variable:
-
+or
 .. code:: bash
 
-    python -m nose -s druhg
+    python -m pytest -s druhg
 
 The tests may fail :-D
 
