@@ -10,19 +10,18 @@ It is most natural clusterization and requires ZERO parameters.
 # License: 3-clause BSD
 
 import numpy as np
-import pandas as pd
 
 from sklearn.base import BaseEstimator, ClusterMixin
 from scipy.sparse import issparse
 from sklearn.neighbors import KDTree, BallTree
-from sklearn.externals.joblib import Memory
-from sklearn.externals import six
+# from sklearn.externals.joblib import Memory
+# from sklearn.externals import six
 from warnings import warn
-from sklearn.utils import check_array
-from sklearn.externals.joblib.parallel import cpu_count
+# from sklearn.utils import check_array
+# from sklearn.externals.joblib.parallel import cpu_count
 
 from ._druhg_tree import UniversalReciprocity
-import _druhg_label as labeling
+from ._druhg_label import label
 
 from .plots import MinimumSpanningTree
 
@@ -137,7 +136,7 @@ def druhg(X, max_ranking=16,
         printout += 'limit1 is set to '+str(limit1)+', '
     else:
         if type(limit1) is not int:
-             raise ValueError('Limit1 must be integer!')
+             raise ValueError('Limit1 must be integer!', limit1, type(limit1))
         if limit1 < 0:
             raise ValueError('Limit1 must be non-negative integer!')
     if limit2 is None:
@@ -145,7 +144,7 @@ def druhg(X, max_ranking=16,
         printout += 'limit2 is set to '+str(limit2)+', '
     else:
         if type(limit2) is not int:
-             raise ValueError('Limit2 must be integer!')
+             raise ValueError('Limit2 must be integer!', limit2, type(limit2))
         if limit2 < 0:
             raise ValueError('Limit2 must be non-negative integer!')
 
@@ -197,7 +196,7 @@ def druhg(X, max_ranking=16,
 
     pairs, values = ur.get_tree()
 
-    labels = labeling.label(pairs, values, size, exclude=exclude, limit1=limit1, limit2=limit2, fix_outliers=fix_outliers)
+    labels = label(pairs, values, size, exclude=exclude, limit1=limit1, limit2=limit2, fix_outliers=fix_outliers)
 
     return (labels,
             pairs, values
@@ -334,7 +333,7 @@ class DRUHG(BaseEstimator, ClusterMixin):
         if printout:
             print ('Relabeling using defaults for: ' + printout)
 
-        return labeling.label(self.mst_, self.values_, self._size, exclude, limit1, limit2, fix_outliers)
+        return label(self.mst_, self.values_, self._size, exclude, limit1, limit2, fix_outliers)
 
     @property
     def minimum_spanning_tree_(self):
