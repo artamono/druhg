@@ -502,4 +502,3 @@ def test_compound():
     # np.save('labels_compound', labels)
     print('n_clusters', n_clusters)
     assert (n_clusters==5)
-
