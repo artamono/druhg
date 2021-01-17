@@ -84,7 +84,7 @@ It will relabel the clusters, by restricting their size.
 
 It will draw mstree with druhg-edges.
 
-.. image:: ./papers/pics/chameleon.jpg
+.. image:: ./docs/source/pics/chameleon.jpg
     :width: 300px
     :align: center
     :height: 200px
