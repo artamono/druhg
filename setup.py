@@ -45,7 +45,7 @@ def requirements():
 
 configuration = {
     'name': 'druhg',
-    'version': '1.1.1',
+    'version': '1.1.2',
     'description': 'Universal clustering based on dialectical materialism',
     'long_description': readme(),
     'classifiers': [
@@ -75,8 +75,8 @@ configuration = {
                     _druhg_label,
                     _druhg_amalgamation],
     'cmdclass': {'build_ext': CustomBuildExtCommand},
-    'test_suite': 'nose.collector',
-    'tests_require': ['nose']
+    'tests_require': ['pytest'],
+    'data_files': ('druhg/_druhg_amalgamation.pxd',)
 }
 
 if not HAVE_CYTHON:
