@@ -117,6 +117,7 @@ The package tests can be run after installation using the command:
     pytest -s druhg
 
 or
+
 .. code:: bash
 
     python -m pytest -s druhg
