@@ -75,7 +75,7 @@ class MinimumSpanningTree(object):
 
         lines, line_heads = [], []
 
-        size = len(pairs) / 2
+        size = int(len(pairs) / 2)
         for i in range(0, size):
             start, end = pos[pairs[2 * i]], pos[pairs[2 * i + 1]]
 
@@ -116,7 +116,7 @@ class MinimumSpanningTree(object):
         except ImportError:
             raise ImportError('You must install the matplotlib library to plot the minimum spanning tree.')
 
-        size = len(pairs) / 2 + 1
+        size = int(len(pairs) / 2 + 1)
         full_size = size
         uf, sz = np.zeros(2 * size, dtype=int), np.ones(size)
         next_label = size + 1
@@ -260,7 +260,7 @@ class MinimumSpanningTree(object):
             raise ImportError('You must have networkx installed to export networkx graphs')
 
         result = Graph()
-        size = len(self._mst_pairs)/2
+        size = int(len(self._mst_pairs)/2)
         for i in range(0, size):
             result.add_edge(self._mst_pairs[2*i], self._mst_pairs[2*i+1])
 
