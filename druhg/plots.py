@@ -151,7 +151,7 @@ class MinimumSpanningTree(object):
         # line_collection.set_array(self._mst[:, 2].T)
 
     def plot(self, axis=None, node_size=40, node_color=None,
-             node_alpha=0.8, edge_alpha = 0.4, edge_linewidth=8, vary_line_width=True,
+             node_alpha=0.8, edge_alpha=0.15, edge_linewidth=8, vary_line_width=True,
              core_color = 'purple'):
         """Plot the minimum spanning tree (as projected into 2D by t-SNE if required).
 

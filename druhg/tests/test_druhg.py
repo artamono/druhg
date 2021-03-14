@@ -2,7 +2,7 @@
 Tests for DRUHG clustering algorithm
 Shamelessly based on (i.e. ripped off from) the HDBSCAN test code ))
 """
-# import pickle
+import pickle
 import numpy as np
 import pandas as pd
 from scipy.spatial import distance
@@ -502,3 +502,62 @@ def test_compound():
     # np.save('labels_compound', labels)
     print('n_clusters', n_clusters)
     assert (n_clusters==5)
+
+def test_copycat():
+    XX = [[0]]*100
+    XX = np.array(XX)
+    dr = DRUHG(max_ranking=200, limit1=1, verbose=False)
+    dr.fit(XX)
+    print (dr.mst_[0], dr.mst_[1])
+    print ('pairs', dr.mst_)
+    print ('labels', dr.labels_)
+    labels = dr.labels_
+    assert (all(x == labels[0] for x in labels))
+
+def test_copycats(): # should fail until weights are made
+    XX = np.concatenate( ([[0]]*100, [[1]]*100))
+    dr = DRUHG(max_ranking=10, limit1=1, verbose=False)
+    dr.fit(XX)
+    print (dr.mst_[0], dr.mst_[1])
+    print ('pairs', dr.mst_)
+    print ('labels', dr.labels_)
+    labels = dr.labels_
+    assert (not all(x == labels[0] for x in labels))
+    assert (labels[0] != labels[-1])
+
+    uniques, counts = np.unique(labels, True)
+    print (uniques, counts)
+    n_clusters = len(set(labels)) - int(-1 in labels)
+    assert (n_clusters==2)
+
+def test_copycats2():
+    XX = np.concatenate( ([[0]]*10, [[1]]*10))
+    dr = DRUHG(max_ranking=200, limit1=1, verbose=False)
+    dr.fit(XX)
+    print (dr.mst_[0], dr.mst_[1])
+    print ('pairs', dr.mst_)
+    print ('labels', dr.labels_)
+    labels = dr.labels_
+    assert (not all(x == labels[0] for x in labels))
+    assert (labels[0] != labels[-1])
+
+    uniques, counts = np.unique(labels, True)
+    print (uniques, counts)
+    n_clusters = len(set(labels)) - int(-1 in labels)
+    assert (n_clusters==2)
+
+def test_copycats3(): # should fail until weights are made
+    XX = np.concatenate( ([[0]]*100, [[1]]*100, [[2]]*5) )
+    dr = DRUHG(max_ranking=10, limit1=1, limit2=250, verbose=False)
+    dr.fit(XX)
+    print (dr.mst_[0], dr.mst_[1])
+    print ('pairs', dr.mst_)
+    print ('labels', dr.labels_)
+    labels = dr.labels_
+    assert (not all(x == labels[0] for x in labels))
+    assert (labels[0] != labels[-1])
+
+    uniques, counts = np.unique(labels, True)
+    print (uniques, counts)
+    n_clusters = len(set(labels)) - int(-1 in labels)
+    assert (n_clusters==3)

@@ -45,7 +45,7 @@ def requirements():
 
 configuration = {
     'name': 'druhg',
-    'version': '1.1.2',
+    'version': '1.1.3',
     'description': 'Universal clustering based on dialectical materialism',
     'long_description': readme(),
     'classifiers': [

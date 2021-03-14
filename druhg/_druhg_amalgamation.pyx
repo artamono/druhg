@@ -47,7 +47,7 @@ cdef class Amalgamation (object):
         quantity = pow(1.*min(self.size, other.size), 0.5)
         measure = pow((1.*self.clusters + other.clusters)/max(self.clusters, other.clusters), 0.25)
 
-        # print ('whole', 1.*self.clusters*quality*quantity*measure,'=', 1.*self.clusters, quality, quantity, measure)
+        # print (max(self.size, other.size), min(self.size, other.size), 'whole', 1.*quality*quantity*measure,'=', 1.*self.clusters, quality, quantity, measure)
         return 1.*quality*quantity*measure
 
     cdef np.intp_t limit_to_ought(self, np.double_t g, Amalgamation other):
@@ -56,6 +56,7 @@ cdef class Amalgamation (object):
         cdef np.double_t whole
 
         whole = self._whole(g, other)
+        # print (whole > self.energy + EPS, whole, self.energy + EPS)
         return whole > self.energy + EPS
 
     cdef Amalgamation merge_amalgamations(self, np.double_t g, Amalgamation other):
