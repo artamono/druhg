@@ -27,7 +27,7 @@ from .plots import MinimumSpanningTree
 
 
 def druhg(X, max_ranking=16,
-          limit1=None, limit2=None, exclude = None, fix_outliers=0,
+          limit1=None, limit2=None, exclude=None, fix_outliers=0,
           metric='minkowski', p=2,
           algorithm='best', leaf_size=40,
           verbose=False, **kwargs):
