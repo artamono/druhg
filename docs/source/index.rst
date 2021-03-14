@@ -9,8 +9,9 @@ Welcome to druhg's documentation!
 .. toctree::
    :maxdepth: 2
    :caption: Articles/Статьи:
+   :titlesonly:
 
-   Dialectic of data RU<dialectic_of_data>
+   Dialectic of data RU <dialectic_of_data>
 
 
 Indices and tables
