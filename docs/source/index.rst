@@ -10,7 +10,7 @@ Welcome to druhg's documentation!
    :maxdepth: 2
    :caption: Articles/Статьи:
 
-   dialectic_of_data
+   Dialectic of data RU<dialectic_of_data>
 
 
 Indices and tables
