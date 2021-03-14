@@ -244,7 +244,7 @@ cdef class UniversalReciprocity (object):
                 continue
 
             dis = distances[ranki]
-            if dis == 0.: # degenerate case
+            if dis == 0.: # degenerate case. If all values are equal it will blow up in _evaluate_reciprocity
                 return j, 0.
 
             rank_left = bisect.bisect(distances, dis)
@@ -324,6 +324,15 @@ cdef class UniversalReciprocity (object):
             if opp_is_reachable == 0: # rank_right >= self.max_neighbors_search:
                 penalty = rank_left
 
+            # todo: create a test to reveal this
+            # if opp_members == 0: # this can happen if all opposing values are equal
+            #     opp_members = 1
+            #     print ('opp_members', opp_members)
+            #
+            # if rank_right - opp_is_reachable == 0:
+            #     rank_right += 1
+            #     print ('omg', rank_right, opp_is_reachable)
+
             val1 = rank_dis # [качество] без этого не отличить углов от ребер в квадрате. dis <= rank_dis <= 2*dis
             val2 = rank_right + penalty # [количество] без этого не различить ядро квадрата от ребер. ranki <= rank_left <= rank_right = scope_size
             # val3 = 1.*members/opp_members # [мера] без этого не обеспечить равномерное прирастание. 1/scope_size < val3 < scope_size
@@ -365,7 +374,8 @@ cdef class UniversalReciprocity (object):
         # uses heap and near brute force
 
         cdef np.intp_t i, j, \
-            best_i, best_j, rank
+            best_i, best_j, rank, \
+            warn
         cdef np.double_t value, opt_min, best_value
         cdef list cluster_arr, restart, heap
 
@@ -378,7 +388,7 @@ cdef class UniversalReciprocity (object):
                     dualtree=True,
                     breadth_first=True,
                     )
-
+        warn = 0
         heap, restart = [], []
 #### Initialization of pure reciprocity then ranks are less than 2
         i = self.num_points
@@ -389,12 +399,20 @@ cdef class UniversalReciprocity (object):
                 value = pow(value,2)*2.
                 self.U.union(i, j)
                 self.result_add_edge(i, j, value)
+
+            if value == 0. and knn_dist[i][self.max_neighbors_search - 1] == 0.: # all values are equal. We skip or bust
+                warn += 1
+                continue
+
                 # print ('pure', i,j)
 #### initialization of reciprocities
             value, j, opt_min, rank = self._evaluate_reciprocity(i, knn_indices, knn_dist)
             if value != INF:
                 heapq.heappush(heap, (opt_min, i))
         heapq.heappush(heap, (INF, self.num_points))
+
+        if warn > 0:
+            print ('A lot of values are the same. Cases: '+str(warn)+'. Try increasing self.max_neighbors_search: '+str(self.max_neighbors_search) )
 
         if self.result_edges >= self.num_points - 1:
             print ('Two subjects only')
@@ -445,7 +463,8 @@ cdef class UniversalReciprocity (object):
 
         cdef np.intp_t i, j, \
             best_i, best_j, rank, \
-            p, p1, p2
+            p, p1, p2, \
+            warn
         cdef np.double_t value, opt_min, best_value
         cdef list cluster_arr, discard, heap
         cdef set _set, s
@@ -469,7 +488,7 @@ cdef class UniversalReciprocity (object):
                     dualtree=True,
                     breadth_first=True,
                     )
-
+        warn = 0
         heap, discard = [], []
         amal_dic = {}
 #### Initialization of pure reciprocity then ranks are less than 2
@@ -482,6 +501,10 @@ cdef class UniversalReciprocity (object):
                 self.U.union(i, j)
                 self.result_add_edge(i, j, value)
                 # print ('pure', i,j, value)
+            if value == 0. and knn_dist[i][self.max_neighbors_search - 1] == 0.: # all values are equal. We skip or bust
+                warn += 1
+                continue
+
 #### initialization of reciprocities
             value, j, opt_min, rank = self._evaluate_reciprocity(i, knn_indices, knn_dist)
             start[i] = opt_min
@@ -497,10 +520,12 @@ cdef class UniversalReciprocity (object):
 
         heapq.heappush(heap, (INF, self.num_points))
 
+        if warn > 0:
+            print ('A lot of values are the same. Cases: '+str(warn)+'. Try increasing self.max_neighbors_search: '+str(self.max_neighbors_search) )
+
         if self.result_edges >= self.num_points - 1:
             print ('Two subjects only. Edges ', self.result_edges, '. Data points ', self.num_points - 1)
             return
-
 
         _set = set()
         best_value = 0
