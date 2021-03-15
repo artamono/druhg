@@ -9,9 +9,9 @@
 .. raw:: html
 
    <style type="text/css">
-     span.underline {
-        text-decoration: underline;
-     }
+        span.underlined {
+            text-decoration: underline;
+        }
    </style>
 
 .. role:: underline
@@ -20,10 +20,10 @@
 .. raw:: html
 
    <style type="text/css">
-     span.bolditalic {
-        font-weight: bold;
-        font-style: italic;
-     }
+        span.bolditalic {
+            font-weight: bold;
+            font-style: italic;
+        }
    </style>
 
 .. role:: bolditalic
