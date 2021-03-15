@@ -7,9 +7,8 @@ Welcome to druhg's documentation!
 =================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Articles/Статьи:
-   :titlesonly:
 
    Dialectic of data RU <dialectic_of_data>
 
