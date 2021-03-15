@@ -6,8 +6,25 @@
 
     </strike>
 
+.. raw:: html
+
+   <style type="text/css">
+     span.underline {
+       text-decoration: underline;
+     }
+   </style>
+
 .. role:: underline
    :class: underline
+
+.. raw:: html
+
+   <style type="text/css">
+     span.bolditalic {
+        font-weight: bold;
+        font-style: italic;
+     }
+   </style>
 
 .. role:: bolditalic
    :class: bolditalic
@@ -282,7 +299,7 @@ DRUHG — Диалектический Ранговый Универсальны
     :alt: Clusters
     :height: 250px
 
-    Формула для предела. 
+    Формула для предела: 
     :math:`G` диалектическое расстояние. :math:`N, n` количества кластеров. :math:`M, m` количества субъектов. 
 
 | Между общностями пролегает **общая** *граница*, одновременно соединяющая и разъединяющая их.
@@ -328,6 +345,7 @@ DRUHG — Диалектический Ранговый Универсальны
 
 Результат
 #########
+
 Следуя данным правилам, образуется вложенная структура кластеров.
 
 .. image:: ./pics/first/Nestedness.png
@@ -362,15 +380,15 @@ DRUHG — Диалектический Ранговый Универсальны
     
     Идеальный алгоритм для первоначального исследования данных. EDA.
 
-.. code:: python
+   .. code:: python
 
-    from druhg import DRUHG  
+       from druhg import DRUHG  
 
-    dr = DRUHG()  
-    dr.fit(your_dataset)  
-    dr.minimum_spanning_tree_.plot()  
-    dr.labels_ # -1 are outliers
-    # enjoy
+       dr = DRUHG()  
+       dr.fit(your_dataset)  
+       dr.minimum_spanning_tree_.plot()  
+       dr.labels_ # -1 are outliers
+       # enjoy
 
 | Код в открытом доступе. https://github.com/artamono/druhg  
 | Самая трудоёмкая часть вычислений происходит при нахождении рёбер остовного дерева.  
@@ -396,7 +414,6 @@ DRUHG — Диалектический Ранговый Универсальны
     :height: 250px
 
     Вот и сказочке конец, а кто слушал молодец!
-
 
 | В этой статье вы познакомились с применением диалектики в программировании и математике.
 | Развитие противоречий позволило перейти от сущности субъекта к сущности более высокого уровня.
@@ -434,4 +451,3 @@ Telegram: https://t.me/druhg_eng
 .. |StalinMao| image:: ./pics/first/SM.png
     :alt: StalinMao
     :width: 30px
-  
