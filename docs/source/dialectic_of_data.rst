@@ -6,8 +6,20 @@
 
    </strike>
 
-.. role:: underline
-   :class: underline
+.. raw:: html
+
+   <style type="text/css">
+     span.underlined {
+       text-decoration: underline;
+     }
+     span.bolditalic {
+       font-weight: bold;
+       font-style: italic;
+     }
+   </style>
+
+.. role:: underlined
+   :class: underlined
 
 .. role:: bolditalic
    :class: bolditalic
@@ -70,8 +82,8 @@ DRUHG — Диалектический Ранговый Универсальны
       :width: 200px
       :align: center
 
-      | Cубъекты: K, L, M, A, B. Между ними существуют отношения.
-      | Субъекты независимы в своём восприятии, на то они и субъекты.  
+   | Cубъекты: K, L, M, A, B. Между ними существуют отношения.
+   | Субъекты независимы в своём восприятии, на то они и субъекты.  
 
 Субъект
 #######
@@ -129,7 +141,7 @@ DRUHG — Диалектический Ранговый Универсальны
    :width: 200px
 
    Расстояние от K к L увеличилось, до третьего ранга.  
-   (от тонкой белой стрелки до толстой :underline:`прозрачной` синей) 
+   (от тонкой белой стрелки до толстой :underlined:`прозрачной` синей) 
 
    :math:`D_{KL} = d_{KM} = d_{3} \neq d_{KL}`
 
