@@ -10,7 +10,7 @@
 
    <style type="text/css">
      span.underline {
-       text-decoration: underline;
+        text-decoration: underline;
      }
    </style>
 
@@ -380,15 +380,17 @@ DRUHG — Диалектический Ранговый Универсальны
     
     Идеальный алгоритм для первоначального исследования данных. EDA.
 
-   .. code:: python
+|
 
-       from druhg import DRUHG  
+    .. code:: python
 
-       dr = DRUHG()  
-       dr.fit(your_dataset)  
-       dr.minimum_spanning_tree_.plot()  
-       dr.labels_ # -1 are outliers
-       # enjoy
+        from druhg import DRUHG  
+
+        dr = DRUHG()  
+        dr.fit(your_dataset)  
+        dr.minimum_spanning_tree_.plot()  
+        dr.labels_ # -1 are outliers
+        # enjoy
 
 | Код в открытом доступе. https://github.com/artamono/druhg  
 | Самая трудоёмкая часть вычислений происходит при нахождении рёбер остовного дерева.  
