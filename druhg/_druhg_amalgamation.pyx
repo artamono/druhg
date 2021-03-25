@@ -1,7 +1,10 @@
+# cython: language_level=3
 # cython: boundscheck=False
 # cython: nonecheck=False
 # cython: wraparound=False
 # cython: initializedcheck=False
+# cython: cdivision=True
+
 # amalgamation structure that can become a cluster
 # Author: Pavel "DRUHG" Artamonov
 # License: 3-clause BSD
@@ -60,9 +63,10 @@ cdef class Amalgamation (object):
         return whole > self.energy + EPS
 
     cdef Amalgamation merge_amalgamations(self, np.double_t g, Amalgamation other):
-        cdef np.intp_t osize, oclusters
-        cdef np.double_t whole, oenergy
-        cdef Amalgamation ret
+        cdef:
+            np.intp_t osize, oclusters
+            np.double_t whole, oenergy
+            Amalgamation ret
 
         ret = self
         if self.size == 1:
