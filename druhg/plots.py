@@ -31,7 +31,7 @@ class MinimumSpanningTree(object):
         else:
             # one dimensional. We need to add dimension
             projection = self._data.copy()
-            projection = np.array([e for e in enumerate(projection)])
+            projection = np.array([e for e in enumerate(projection)], np.int)
 
         return projection
 
@@ -93,6 +93,7 @@ class MinimumSpanningTree(object):
         p = unionfind[n]
         if p == 0:
             return n
+
         while unionfind[p] != 0:
             p = unionfind[p]
 
@@ -116,26 +117,35 @@ class MinimumSpanningTree(object):
         except ImportError:
             raise ImportError('You must install the matplotlib library to plot the minimum spanning tree.')
 
+        min_index, max_index = min(pairs), max(pairs)
+        if min_index < 0:
+            raise ValueError('Indices should be non-negative')
+
         size = int(len(pairs) / 2 + 1)
-        full_size = size
-        uf, sz = np.zeros(2 * size, dtype=int), np.ones(size)
-        next_label = size + 1
+
+        union_size = size
+        if max_index > union_size - 1:
+            union_size = max_index + 1
+        union_size += 2
+
+        uf, sz = np.zeros(2 * union_size, dtype=int), np.ones(union_size)
+        next_label = union_size + 1
 
         default_color = (0, 0, 0, alpha)
         min_arrow_width = 0.002
         max_arrow_width = lw
-        max_collision = np.sqrt(size)
+        max_collision = np.sqrt(union_size)
         thick_a = (max_arrow_width - min_arrow_width)/(1.*max_collision - 1)
         thick_b = max_arrow_width - 1.*max_collision*thick_a
         for j in range(0, size - 1):
             a, b = pairs[2 * j], pairs[2 * j + 1]
             start, end = pos[a], pos[b]
 
-            i = next_label - full_size
+            i = next_label - union_size
             aa, bb = self.fast_find(uf, a), self.fast_find(uf, b)
 
-            a = (uf[a] != 0) * (aa - full_size)
-            b = (uf[b] != 0) * (bb - full_size)
+            a = (uf[a] != 0) * (aa - union_size)
+            b = (uf[b] != 0) * (bb - union_size)
             uf[aa] = uf[bb] = next_label
             next_label += 1
 
@@ -146,7 +156,6 @@ class MinimumSpanningTree(object):
             w = size_reflection*thick_a + thick_b
             arr = Arrow(start[0], start[1], end[0] - start[0], end[1] - start[1], color = default_color, width=w)
             ax.add_patch(arr)
-
 
         # line_collection.set_array(self._mst[:, 2].T)
 

@@ -1,8 +1,12 @@
+# cython: language_level=3
 # cython: boundscheck=False
 # cython: nonecheck=False
 # cython: wraparound=False
 # cython: initializedcheck=False
-# builds minimum spanning tree for druhg algorithm
+# cython: cdivision=True
+
+# Builds minimum spanning tree for druhg algorithm
+# uses dialectics to evaluate reciprocity
 # Author: Pavel "DRUHG" Artamonov
 # License: 3-clause BSD
 
@@ -15,7 +19,8 @@ import _heapq as heapq
 
 from libc.stdlib cimport malloc, free
 
-cdef np.double_t INF = np.inf
+# cdef np.double_t INF = np.inf
+cdef np.double_t INF = sys.float_info.max
 cdef np.double_t EPS = sys.float_info.min
 
 from libc.math cimport fabs, pow
@@ -102,12 +107,13 @@ cdef class PairwiseDistanceTreeGeneric(object):
         return knn_dist, knn_indices
 
 cdef class UnionFind (object):
-    cdef np.ndarray parent_arr
-    cdef np.intp_t *parent
+    cdef:
+        np.ndarray parent_arr
+        np.intp_t *parent
 
-    cdef np.intp_t next_label
+        np.intp_t next_label
 
-    def __init__(self, N):
+    def __init__(self, np.intp_t N):
         self.parent_arr = np.zeros(2 * N, dtype=np.intp)
         self.parent = (<np.intp_t *> self.parent_arr.data)
         self.next_label = N + 1
@@ -170,18 +176,19 @@ cdef class UniversalReciprocity (object):
         Used only with KDTree/BallTree option.
     """
 
-    cdef object tree
-    cdef object dist_tree
+    cdef:
+        object tree
+        object dist_tree
 
-    cdef np.intp_t num_points
-    cdef np.intp_t num_features
+        np.intp_t num_points
+        np.intp_t num_features
 
-    cdef np.intp_t max_neighbors_search
+        np.intp_t max_neighbors_search
 
-    cdef UnionFind U
-    cdef np.intp_t result_edges
-    cdef np.ndarray result_value_arr
-    cdef np.ndarray result_pairs_arr
+        UnionFind U
+        np.intp_t result_edges
+        np.ndarray result_value_arr
+        np.ndarray result_pairs_arr
 
     def __init__(self, algorithm, tree, max_neighbors_search=16, metric='euclidean', leaf_size=20, is_slow = 0, **kwargs):
 
@@ -229,54 +236,105 @@ cdef class UniversalReciprocity (object):
         self.result_value_arr[i] = val
         self.result_edges += 1
 
-    cdef tuple _pure_reciprocity(self, i, knn_indices, knn_dist):
-        cdef np.intp_t ranki, j, \
-            rank_left, rank_right, \
-            parent
+    cdef bint _pure_reciprocity(self, np.intp_t i, np.ndarray[np.intp_t, ndim=2] knn_indices, np.ndarray[np.double_t, ndim=2] knn_dist, Relation* rel):
+        """Finding pure reciprocal pairs(both ranks = 2)
+        And deals with equal objects.
+        Runs as initialization, short version of evaluate_reciprocity.
+        Fixes problems when amount of same objects are less than K neighbors.
+    
+        Parameters
+        ----------
+    
+        i : int
+            index of the subject
+    
+        knn_indices: ndarray, shape (n_samples, n_features, )
+            Array of arrays. Indices of first K neighbors(including itself, meaning i).
+        
+        knn_dist: ndarray, shape (n_samples, n_features, )
+            Array of arrays. Distances of first K neighbors(including itself, meaning zero).
+        
+        rel: Relation
+            Part of the output. Stores all significant parameters.            
+            rel.reciprocity is zero if values are equal - it will lead to relaunch.
+            rel.reciprocity is slightly different than in `evaluate_reciprocity`
+            
+        Returns
+        -------
+        res : bint
+            Success if not zero.
+        """
+        cdef:
+            np.intp_t ranki, j, \
+                rank_left, rank_right, \
+                parent
 
-        cdef np.double_t dis
+            np.double_t dis
 
         parent = self.U.fast_find(i)
         indices, distances = knn_indices[i], knn_dist[i]
-        for ranki in range(0, 2):
+        for ranki in range(0, self.max_neighbors_search + 1):
             j = indices[ranki]
             if parent == self.U.fast_find(j):
                 continue
 
             dis = distances[ranki]
-            if dis == 0.: # degenerate case. If all values are equal it will blow up in _evaluate_reciprocity
-                return j, 0.
+            if dis == 0.: # degenerate case.
+                rel.reciprocity = 0.
+                rel.target = j
+                rel.my_rank = ranki
+                rel.rec_rank = ranki
+                rel.my_dis = 0.
+                rel.rec_dis = 0.
+                rel.penalty = 0
+                rel.my_members = ranki
+                rel.rec_members = 1
+
+                return ranki + 1
 
             rank_left = bisect.bisect(distances, dis)
             if rank_left > 2:
-                return -1, -1.
+                return 0
 
             rank_right = bisect.bisect(knn_dist[j], dis)
             if rank_right > 2:
-                return -1, -1.
-            return j, dis
-        return -1, -1.
+                return 0
 
-    cdef tuple _evaluate_reciprocity(self, i, knn_indices, knn_dist):
+            rel.reciprocity = pow(dis,2)*2.
+            rel.target = j
+            rel.my_rank = 2
+            rel.rec_rank = 2
+            rel.my_dis = dis
+            rel.rec_dis = dis
+            rel.penalty = 0
+            rel.my_members = 1
+            rel.rec_members = 1
 
-        cdef np.intp_t ranki, j, opt_edge, \
-            p, parent, parent_opp, \
-            members, opp_members, equal_members, \
-            rank_left, rank_right, scope_size, opt_rank, \
-            opp_is_reachable, penalty
+            return 2
+        return 0
 
-        cdef np.double_t best, opt_min, \
-            order, order_min, \
-            dis, rank_dis, old_dis, \
-            val1, val2
+    cdef bint _evaluate_reciprocity(self, np.intp_t i, np.ndarray[np.intp_t, ndim=2] knn_indices, np.ndarray[np.double_t, ndim=2] knn_dist, Relation *rel):
+
+        cdef:
+            np.intp_t ranki, j, \
+                p, parent, parent_opp, \
+                members, opp_members, equal_members, \
+                rank_left, rank_right, \
+                opp_is_reachable, penalty, \
+                res = 0
+
+            np.double_t best, opt_min, \
+                order, order_min, \
+                dis, rank_dis, old_dis
+
+            np.ndarray indices, ind_opp
+            np.ndarray distances, dis_opp
 
         parent = self.U.fast_find(i)
         indices, distances = knn_indices[i], knn_dist[i]
 
         best, opt_min = INF, INF
-        opt_rank = 0
-        opt_edge = 0
-        val1, val2 = 1., 1.
+
         members = 0
         equal_members = 0
         old_dis = 0.
@@ -307,8 +365,7 @@ cdef class UniversalReciprocity (object):
             if rank_left > rank_right:
                 continue
 
-            scope_size = rank_right - 1
-            rank_dis = distances[scope_size]
+            rank_dis = distances[rank_right - 1]
 
             ind_opp = knn_indices[j]
             parent_opp = self.U.fast_find(j)
@@ -324,40 +381,36 @@ cdef class UniversalReciprocity (object):
             if opp_is_reachable == 0: # rank_right >= self.max_neighbors_search:
                 penalty = rank_left
 
-            # todo: create a test to reveal this
-            # if opp_members == 0: # this can happen if all opposing values are equal
-            #     opp_members = 1
-            #     print ('opp_members', opp_members)
-            #
-            # if rank_right - opp_is_reachable == 0:
-            #     rank_right += 1
-            #     print ('omg', rank_right, opp_is_reachable)
+            if rank_right == opp_is_reachable: # For upper bound. Adding 1 to fix rare case
+                opp_is_reachable -= 1
 
-            val1 = rank_dis # [качество] без этого не отличить углов от ребер в квадрате. dis <= rank_dis <= 2*dis
-            val2 = rank_right + penalty # [количество] без этого не различить ядро квадрата от ребер. ranki <= rank_left <= rank_right = scope_size
-            # val3 = 1.*members/opp_members # [мера] без этого не обеспечить равномерное прирастание. 1/scope_size < val3 < scope_size
+            # val1 = rank_dis # [качество] без этого не отличить углов от ребер в квадрате. dis <= rank_dis <= 2*dis
+            # val2 = rank_right + penalty # [количество] без этого не различить ядро квадрата от ребер. ranki <= rank_left <= rank_right
+            # val3 = 1.*members/opp_members # [мера] без этого не обеспечить равномерное прирастание. 1/(rank_right - 1) < val3 < rank_right - 1
 
-            order_min = pow(val1, 4) * pow(val2, 2) * members
-            order = order_min / opp_members
-            order_min = order_min / (rank_right - opp_is_reachable)
-
+            order_min = pow(rank_dis, 4) * pow(rank_right + penalty, 2) * members # WARNING: `members` are counted improperly. If ranki != rank_left, then this pair might have same dist as the other. Real members might be higher.
+            order = order_min / opp_members # WARNING: `opp_members` can be zero if knn_indices doesn't have itself. This rare case is possible when amount of equal objects less than K neighbors. `pure_reciprocity` initialization fixes this
+            order_min = order_min / (rank_right - opp_is_reachable) # dividing by how many can be.
             if order_min < opt_min:
                 opt_min = order_min
+                rel.upper_bound = order_min # it will be used outside in the heap part
 
             if order < best:
-                best, opt_edge = order, j
-                opt_rank = rank_right
-                # opt_dump = (i, j, order, dis, rank_dis, ranki, rank_left, rank_right, penalty, members, opp_members)
+                if res == 0:
+                    res = 1
+                best = order
 
-            # if i == 6918: # or j == 6998:
-            #     f1 = lambda x: self.U.fast_find(x)==parent_opp
-            #     f2 = lambda x: self.U.fast_find(x)==parent
+                rel.reciprocity = best
+                rel.target = j
+                rel.my_rank = ranki
+                rel.rec_rank = rank_right
+                rel.my_dis = dis
+                rel.rec_dis = rank_dis
+                rel.penalty = penalty
+                rel.my_members = rank_right - opp_is_reachable
+                rel.rec_members = opp_members
 
-                # print (i, j, 'vals', val1, val2, 'mems', members, opp_members, 'ranks', ranki, rank_left, rank_right, 'order', order, order_min, 'opts', opt, opt_min, opt_edge)
-                # print ('ind', ind_opp[:rank_right], dis_opp[:rank_right], [ f1(x) for x in ind_opp[:rank_right]], [ f2(x) for x in ind_opp[:rank_right]], indices[:ranki], distances[:ranki])
-            # print (i, j, 'vals', val1, val2, val3, 'mems', members, opp_members, 'order', order, 'opts', opt, opt_edge, opt_rank, opt_min)
-        # print ('opt_dump', opt_dump)
-        return best, opt_edge, opt_min, opt_rank
+        return res
 
 
     cdef _compute_tree_edges(self, is_slow):
@@ -373,14 +426,17 @@ cdef class UniversalReciprocity (object):
         # computes DRUHG Spanning Tree
         # uses heap and near brute force
 
-        cdef np.intp_t i, j, \
-            best_i, best_j, rank, \
-            warn
-        cdef np.double_t value, opt_min, best_value
-        cdef list cluster_arr, restart, heap
+        cdef:
+            np.intp_t i, k, \
+                warn
 
-        cdef np.ndarray[np.double_t, ndim=2] knn_dist
-        cdef np.ndarray[np.intp_t, ndim=2] knn_indices
+            np.double_t upper_bound
+            list restart, heap
+
+            Relation rel, best_rel
+
+            np.ndarray[np.double_t, ndim=2] knn_dist
+            np.ndarray[np.intp_t, ndim=2] knn_indices
 
         knn_dist, knn_indices = self.dist_tree.query(
                     self.tree.data,
@@ -394,64 +450,64 @@ cdef class UniversalReciprocity (object):
         i = self.num_points
         while i:
             i -= 1
-            j, value = self._pure_reciprocity(i, knn_indices, knn_dist)
-            if j >= 0:
-                value = pow(value,2)*2.
-                self.U.union(i, j)
-                self.result_add_edge(i, j, value)
+            if knn_dist[i][0] < 0.:
+                print ('Distances cannot be negative! Exiting. ', i, knn_dist[i][0])
+                return
 
-            if value == 0. and knn_dist[i][self.max_neighbors_search - 1] == 0.: # all values are equal. We skip or bust
+            rel.reciprocity = 1.
+            if self._pure_reciprocity(i, knn_indices, knn_dist, &rel):
+                self.U.union(i, rel.target)
+                self.result_add_edge(i, rel.target, rel.reciprocity)
+
+            if rel.reciprocity == 0.: # values match
                 warn += 1
+                i += 1 # need to relaunch same values
                 continue
 
                 # print ('pure', i,j)
 #### initialization of reciprocities
-            value, j, opt_min, rank = self._evaluate_reciprocity(i, knn_indices, knn_dist)
-            if value != INF:
-                heapq.heappush(heap, (opt_min, i))
-        heapq.heappush(heap, (INF, self.num_points))
+
+            if self._evaluate_reciprocity(i, knn_indices, knn_dist, &rel):
+                heapq.heappush(heap, (rel.upper_bound, i))
 
         if warn > 0:
-            print ('A lot of values are the same. Cases: '+str(warn)+'. Try increasing self.max_neighbors_search: '+str(self.max_neighbors_search) )
+            print ('A lot of values are the same. Try increasing self.max_neighbors_search.', warn)
 
         if self.result_edges >= self.num_points - 1:
             print ('Two subjects only')
             return
 
-        best_i, best_j = 0, 0
         while self.result_edges < self.num_points - 1:
-            best_value = INF
+            best_rel.reciprocity = INF
             del restart[:]
-            while True:
-                value, i = heapq.heappop(heap)
-                if best_value <= value:
-                    if value != INF or i == self.num_points:
-                        restart.append((value, i))
+
+            k = len(heap)
+            while k:
+                k -= 1
+                upper_bound, i = heapq.heappop(heap)
+                if best_rel.reciprocity <= upper_bound:
+                    restart.append((upper_bound, i))
                     break
-                value, j, opt_min, rank = self._evaluate_reciprocity(i, knn_indices, knn_dist)
 
-                restart.append((opt_min, i))
-                if value < best_value:
-                    best_i, best_value, best_j = i, value, j
+                if self._evaluate_reciprocity(i, knn_indices, knn_dist, &rel):
+                    restart.append((rel.upper_bound, i))
+                    if rel.reciprocity + EPS < best_rel.reciprocity:
+                        best_rel = rel
+                        best_rel.index = i
 
-            if best_value == INF:
+            if best_rel.reciprocity == INF:
                 print (str(self.num_points - 1 - self.result_edges) +' not connected edges. It is a forest. Try increasing max_neighbors(max_ranking) value '+str(self.max_neighbors_search)+' for a better result.')
                 break
 
-            best_value = pow(best_value,0.5)
-            self.U.union(best_i, best_j)
-            self.result_add_edge(best_i, best_j, best_value)
+            self.U.union(best_rel.index, best_rel.target)
+            self.result_add_edge(best_rel.index, best_rel.target, pow(best_rel.reciprocity,0.5))
 
-            value, best_j, opt_min, rank = self._evaluate_reciprocity(best_i, knn_indices, knn_dist)
-            if value != INF:
-                heapq.heappush(heap, (opt_min, best_i))
+            if self._evaluate_reciprocity(best_rel.index, knn_indices, knn_dist, &rel):
+                heapq.heappush(heap, (rel.upper_bound, best_rel.index))
 
-            for value, i in restart:
-                if i != best_i and value != INF:
-                    heapq.heappush(heap, (value, i))
-                if i == self.num_points:
-                    heapq.heappush(heap, (INF, self.num_points))
-
+            for upper_bound, i in restart:
+                if i != best_rel.index:
+                    heapq.heappush(heap, (upper_bound, i))
 
     cdef _compute_tree_vicinity_heap(self):
         # DRUHG
@@ -461,26 +517,31 @@ cdef class UniversalReciprocity (object):
         # stores and checks targets
         # faster than brute force and very accurate
 
-        cdef np.intp_t i, j, \
-            best_i, best_j, rank, \
-            p, p1, p2, \
-            warn
-        cdef np.double_t value, opt_min, best_value
-        cdef list cluster_arr, discard, heap
-        cdef set _set, s
+        cdef:
+            np.intp_t i, best_i, \
+                p, p1, p2, \
+                warn, has_data
+            np.double_t upper_bound, best_value
+            list discard, heap
+            set _set, s
+            dict amal_dic
 
-        cdef np.ndarray[np.double_t, ndim=1] start_arr
-        cdef np.double_t * start
-        start_arr = -1.*np.ones(self.num_points + 1, dtype=np.intp)
-        start = (<np.double_t *> start_arr.data)
+            Relation rel
 
-        cdef np.ndarray[np.intp_t, ndim=1] target_arr
-        cdef np.intp_t * target
+            np.ndarray[np.double_t, ndim=1] upper_arr
+            np.double_t * upper
+
+            np.ndarray[np.intp_t, ndim=1] target_arr
+            np.intp_t * target
+
+            np.ndarray[np.double_t, ndim=2] knn_dist
+            np.ndarray[np.intp_t, ndim=2] knn_indices
+
+        upper_arr = -1.*np.ones(self.num_points + 1, dtype=np.double)
+        upper = (<np.double_t *> upper_arr.data)
+
         target_arr = -1*np.ones(self.num_points + 1, dtype=np.intp)
         target = (<np.intp_t *> target_arr.data)
-
-        cdef np.ndarray[np.double_t, ndim=2] knn_dist
-        cdef np.ndarray[np.intp_t, ndim=2] knn_indices
 
         knn_dist, knn_indices = self.dist_tree.query(
                     self.tree.data,
@@ -488,6 +549,7 @@ cdef class UniversalReciprocity (object):
                     dualtree=True,
                     breadth_first=True,
                     )
+
         warn = 0
         heap, discard = [], []
         amal_dic = {}
@@ -495,88 +557,84 @@ cdef class UniversalReciprocity (object):
         i = self.num_points
         while i:
             i -= 1
-            j, value = self._pure_reciprocity(i, knn_indices, knn_dist)
-            if j >= 0:
-                value = value = pow(value,2)*2.
-                self.U.union(i, j)
-                self.result_add_edge(i, j, value)
+            if knn_dist[i][0] < 0.:
+                print ('Distances cannot be negative! Exiting. ', i, knn_dist[i][0])
+                return
+
+            upper[i] = INF
+            rel.reciprocity = 1.
+            if self._pure_reciprocity(i, knn_indices, knn_dist, &rel):
+                self.U.union(i, rel.target)
+                self.result_add_edge(i, rel.target, rel.reciprocity)
                 # print ('pure', i,j, value)
-            if value == 0. and knn_dist[i][self.max_neighbors_search - 1] == 0.: # all values are equal. We skip or bust
+            if rel.reciprocity == 0.: # values match
                 warn += 1
+                i += 1 # need to relaunch same values
                 continue
 
 #### initialization of reciprocities
-            value, j, opt_min, rank = self._evaluate_reciprocity(i, knn_indices, knn_dist)
-            start[i] = opt_min
-            if value != INF:
-                heapq.heappush(heap, (opt_min, i))
-                target[i] = j
+            if self._evaluate_reciprocity(i, knn_indices, knn_dist, &rel):
+                upper[i] = rel.upper_bound
+                heapq.heappush(heap, (rel.upper_bound, i))
+                target[i] = rel.target
 
-                p = self.U.fast_find(j)
+                p = self.U.fast_find(rel.target)
                 if p not in amal_dic:
                     _ = set()
                     amal_dic[p] = _
                 amal_dic[p].add(i)
 
-        heapq.heappush(heap, (INF, self.num_points))
-
         if warn > 0:
-            print ('A lot of values are the same. Cases: '+str(warn)+'. Try increasing self.max_neighbors_search: '+str(self.max_neighbors_search) )
+            print ('A lot of values are the same. Try increasing self.max_neighbors_search.', warn)
 
         if self.result_edges >= self.num_points - 1:
             print ('Two subjects only. Edges ', self.result_edges, '. Data points ', self.num_points - 1)
             return
 
+        heapq.heappush(heap, (INF, self.num_points))
+
         _set = set()
         best_value = 0
-        while best_value != INF and self.result_edges < self.num_points - 1:
+        while best_value != INF:
             best_value, best_i = heapq.heappop(heap)
-            value = start[best_i]
-            if best_value != value:
+            if best_value != upper[best_i]:
                 continue
-            value, best_j, opt_min, rank = self._evaluate_reciprocity(best_i, knn_indices, knn_dist)
+            rel.target = 0
+            rel.reciprocity = INF
+            has_data = self._evaluate_reciprocity(best_i, knn_indices, knn_dist, &rel)
 
-            if target[best_i] != best_j:
+            if target[best_i] != rel.target:
                 p = self.U.fast_find(target[best_i])
                 if p in amal_dic:
                     _ = amal_dic[p]
                     _.discard(best_i)
                     amal_dic[p] = _
 
-                p = self.U.fast_find(best_j)
+                p = self.U.fast_find(rel.target)
                 if p not in amal_dic:
                     _ = set()
                     _.add(best_i)
                     amal_dic[p] = _
                 else:
                     amal_dic[p].add(best_i)
-                target[best_i] = best_j
+                target[best_i] = rel.target
 
-            if value > best_value:
-                if value != INF:
-                    if best_value < opt_min:
-                        value = opt_min
-                    heapq.heappush(heap, (value, best_i))
-                    # print ('rerun!', best_i, best_j, value, best_value, opt_min)
-                start[best_i] = value
+            if rel.reciprocity > best_value:
+                upper[best_i] = rel.reciprocity
+                if has_data:
+                    if best_value < rel.upper_bound:
+                        upper[best_i] = rel.upper_bound
+                        heapq.heappush(heap, (rel.upper_bound, best_i))
+                    else:
+                        heapq.heappush(heap, (rel.reciprocity, best_i))
                 continue
-            best_value = value
+            best_value = rel.reciprocity
 
             p1 = self.U.fast_find(best_i)
-            p2 = self.U.fast_find(best_j)
+            p2 = self.U.fast_find(rel.target)
             # adding edge
-            value = pow(value,0.5)
-            self.U.union(best_i, best_j)
-            self.result_add_edge(best_i, best_j, value)
-
-            # if len(cluster_arr)>0 or 1:
-            #     print ('clusters', self.result_clusters, '(+', len(cluster_arr), ') edges', self.result_edges,  '======opt======', value, 'i,j', best_i, best_j, opt_dump)
-            #
-            #     print ('  ============', dump_com[0])
-            #     print ('    === ', dump_com[1])
-            #     print ('    === ', dump_com[2])
-            #     print ('  ===== ', dump_com[3])
-            #     print ('heap_vicinity3', value, 'i,j', best_i, best_j, dump_com, opt_dump)
+            self.U.union(best_i, rel.target)
+            self.result_add_edge(best_i, rel.target, pow(rel.reciprocity,0.5))
 
             # update of all who targeted new amalgamation
             p = self.U.fast_find(best_i) # after union
@@ -596,16 +654,16 @@ cdef class UniversalReciprocity (object):
                     target[i] = i
                     continue
 
-                value = start[i]
-                if value != INF:
-                    value /= 2
-                    start[i] = value
-                    heapq.heappush(heap, (value, i))
+                upper_bound = upper[i]
+                if upper_bound != INF:
+                    upper_bound /= 2
+                    upper[i] = upper_bound
+                    heapq.heappush(heap, (upper_bound, i))
 
             s.difference_update(discard)
             amal_dic[p] = s
 
-            start[best_i] = best_value
+            upper[best_i] = best_value
             heapq.heappush(heap, (best_value, best_i))
 
             # vicinity update
@@ -614,17 +672,20 @@ cdef class UniversalReciprocity (object):
             #     rank = self.max_neighbors_search
 
             _set.clear()
-            for k in range(0, rank):
+            for k in range(0, rel.rec_rank):
                 i = knn_indices[best_i][k]
                 if self.U.fast_find(i) != p:
                     _set.add(i)
-                i = knn_indices[best_j][k]
+                i = knn_indices[rel.target][k]
                 if self.U.fast_find(i) != p:
                     _set.add(i)
 
             for i in _set:
-                value = start[i]
-                if value != INF:
-                    value /= 2
-                    start[i] = value
-                    heapq.heappush(heap, (value, i))
+                upper_bound = upper[i]
+                if upper_bound != INF:
+                    upper_bound /= 2
+                    upper[i] = upper_bound
+                    heapq.heappush(heap, (upper_bound, i))
+
+            if self.result_edges >= self.num_points - 1:
+                break

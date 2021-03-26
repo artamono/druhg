@@ -1,7 +1,10 @@
+# cython: language_level=3
 # cython: boundscheck=False
 # cython: nonecheck=False
 # cython: wraparound=False
 # cython: initializedcheck=False
+# cython: cdivision=True
+
 # amalgamation structure that can become a cluster
 # Author: Pavel "DRUHG" Artamonov
 # License: 3-clause BSD
@@ -11,6 +14,7 @@ cimport numpy as np
 import sys
 
 cdef np.double_t EPS = sys.float_info.min
+
 
 from libc.math cimport fabs, pow
 
@@ -23,11 +27,11 @@ cdef np.double_t merge_means(np.intp_t na, np.double_t meana,
 
     # nx = na + nb
     delta = meanb - meana
-    meana = meana + delta*nb/(na + nb)
+    delta = meana + delta*nb/(na + nb)
     # use this for big n's
     # mu = (mu*n + mu_2*n_2) / nx
     # m2a = m2a + m2b + delta**2*na*nb/nx
-    return meana
+    return delta
 
 
 cdef class Amalgamation (object):
@@ -60,9 +64,10 @@ cdef class Amalgamation (object):
         return whole > self.energy + EPS
 
     cdef Amalgamation merge_amalgamations(self, np.double_t g, Amalgamation other):
-        cdef np.intp_t osize, oclusters
-        cdef np.double_t whole, oenergy
-        cdef Amalgamation ret
+        cdef:
+            np.intp_t osize, oclusters
+            np.double_t whole, oenergy
+            Amalgamation ret
 
         ret = self
         if self.size == 1:
