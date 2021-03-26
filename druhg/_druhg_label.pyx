@@ -1,7 +1,10 @@
+# cython: language_level=3
 # cython: boundscheck=False
 # cython: nonecheck=False
 # cython: wraparound=False
 # cython: initializedcheck=False
+# cython: cdivision=True
+
 # Labels nodes given mst-edgepairs and cluster-parents of DRUHG's results.
 # Also provides tools for label manipulations, such as:
 # * Treats small clusters as outliers on-demand
@@ -11,20 +14,20 @@
 # Author: Pavel "DRUHG" Artamonov
 # License: 3-clause BSD
 
-
 import numpy as np
 cimport numpy as np
 
-from _druhg_amalgamation cimport Amalgamation
-from _druhg_amalgamation import Amalgamation
+from ._druhg_amalgamation import Amalgamation
+from ._druhg_amalgamation cimport Amalgamation
 
 cdef class UnionFind (object):
 
-    cdef np.ndarray parent_arr
-    cdef np.intp_t *parent
+    cdef:
+        np.ndarray parent_arr
+        np.intp_t *parent
 
-    cdef np.intp_t next_label
-    cdef np.intp_t full_size
+        np.intp_t next_label
+        np.intp_t full_size
 
     def __init__(self, N):
         self.full_size = N
@@ -68,6 +71,7 @@ cdef class UnionFind (object):
 
     cdef np.intp_t passive_union(self, np.intp_t aa, np.intp_t bb):
         # aa, bb = self.fast_find(aa), self.fast_find(bb)
+        cdef np.intp_t ret
 
         ret = self.next_label
         self.parent[aa] = self.parent[bb] = ret
@@ -75,8 +79,9 @@ cdef class UnionFind (object):
         return ret
 
     cdef list discard_clusters(self, np.intp_t n, set clusters):
-        cdef np.intp_t p, temp
-        cdef list ret
+        cdef:
+            np.intp_t p, temp
+            list ret
 
         ret = []
         p = self.parent[n]
@@ -113,7 +118,10 @@ cdef class UnionFind (object):
         return label
 
 cdef void fixem(np.ndarray edges_arr, np.intp_t num_edges, np.ndarray result):
-    cdef np.intp_t p, a, b
+    cdef:
+        np.intp_t p, a, b, dontstop
+        set new_results, links
+        list new_path, restart
 
     new_results = set()
     new_path = []
@@ -148,12 +156,13 @@ cdef void fixem(np.ndarray edges_arr, np.intp_t num_edges, np.ndarray result):
 
 cdef set emerge_clusters(UnionFind U, np.ndarray edges_arr, np.ndarray values_arr, np.intp_t limit1, np.intp_t limit2, list exclude):
 
-    cdef np.intp_t e1,e2, p1,p2, i, c
-    cdef np.double_t v
-    cdef Amalgamation being, being1, being2, being3
-    cdef list disc
-    cdef dict d
-    cdef set clusters
+    cdef:
+        np.intp_t e1,e2,e3, p1,p2, i, c
+        np.double_t v
+        Amalgamation being, being1, being2, being3
+        list disc
+        dict d
+        set clusters
 
     being = Amalgamation()
     being1 = being
@@ -247,11 +256,12 @@ cpdef np.ndarray label(np.ndarray edges_arr, np.ndarray values_arr, int size = 0
        the label -1.
     """
 
-    cdef set clusters
-    cdef int i
+    cdef:
+        set clusters
+        int i
 
-    cdef np.ndarray result_arr
-    cdef np.intp_t *result
+        np.ndarray result_arr
+        np.intp_t *result
 
 
     if limit1 <= 0:
@@ -274,7 +284,7 @@ cpdef np.ndarray label(np.ndarray edges_arr, np.ndarray values_arr, int size = 0
     U = UnionFind(size)
 
     clusters = emerge_clusters(U, edges_arr, values_arr, limit1, limit2, exclude)
-    
+
     i = size
     while i:
         i -= 1
@@ -290,8 +300,9 @@ cdef np.ndarray pretty(np.ndarray labels_arr):
     """ Relabels to pretty positive integers. 
     """
     cdef np.intp_t i, p, label, max_label
-
     cdef np.ndarray[np.intp_t, ndim=1] result_arr
+    cdef dict converter
+    cdef np.intp_t* result
 
     result_arr = -1*np.ones(len(labels_arr), dtype=np.intp)
     result = (<np.intp_t *> result_arr.data)
