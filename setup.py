@@ -28,10 +28,11 @@ class CustomBuildExtCommand(build_ext):
 
 _druhg_tree = Extension('druhg._druhg_tree',
                          sources=['druhg/_druhg_tree.pyx'])
-_druhg_label = Extension('druhg._druhg_label',
-                         sources=['druhg/_druhg_label.pyx'])
 _druhg_amalgamation = Extension('druhg._druhg_amalgamation',
                          sources=['druhg/_druhg_amalgamation.pyx'])
+_druhg_label = Extension('druhg._druhg_label',
+                         sources=['druhg/_druhg_label.pyx'])
+
 
 
 def readme():
@@ -72,8 +73,9 @@ configuration = {
     'packages': ['druhg', 'druhg.tests'],
     'install_requires': requirements(),
     'ext_modules': [_druhg_tree,
+                    _druhg_amalgamation,
                     _druhg_label,
-                    _druhg_amalgamation],
+                    ],
     'cmdclass': {'build_ext': CustomBuildExtCommand},
     'tests_require': ['pytest'],
     'data_files': ('druhg/_druhg_amalgamation.pxd', 'druhg/_druhg_tree.pxd',)
