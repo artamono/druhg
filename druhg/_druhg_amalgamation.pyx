@@ -15,6 +15,7 @@ import sys
 
 cdef np.double_t EPS = sys.float_info.min
 
+
 from libc.math cimport fabs, pow
 
 cdef np.double_t merge_means(np.intp_t na, np.double_t meana,
@@ -26,11 +27,11 @@ cdef np.double_t merge_means(np.intp_t na, np.double_t meana,
 
     # nx = na + nb
     delta = meanb - meana
-    meana = meana + delta*nb/(na + nb)
+    delta = meana + delta*nb/(na + nb)
     # use this for big n's
     # mu = (mu*n + mu_2*n_2) / nx
     # m2a = m2a + m2b + delta**2*na*nb/nx
-    return meana
+    return delta
 
 
 cdef class Amalgamation (object):
