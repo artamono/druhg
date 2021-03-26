@@ -107,10 +107,11 @@ cdef class PairwiseDistanceTreeGeneric(object):
         return knn_dist, knn_indices
 
 cdef class UnionFind (object):
-    cdef np.ndarray parent_arr
-    cdef np.intp_t *parent
+    cdef:
+        np.ndarray parent_arr
+        np.intp_t *parent
 
-    cdef np.intp_t next_label
+        np.intp_t next_label
 
     def __init__(self, np.intp_t N):
         self.parent_arr = np.zeros(2 * N, dtype=np.intp)
@@ -175,18 +176,19 @@ cdef class UniversalReciprocity (object):
         Used only with KDTree/BallTree option.
     """
 
-    cdef object tree
-    cdef object dist_tree
+    cdef:
+        object tree
+        object dist_tree
 
-    cdef np.intp_t num_points
-    cdef np.intp_t num_features
+        np.intp_t num_points
+        np.intp_t num_features
 
-    cdef np.intp_t max_neighbors_search
+        np.intp_t max_neighbors_search
 
-    cdef UnionFind U
-    cdef np.intp_t result_edges
-    cdef np.ndarray result_value_arr
-    cdef np.ndarray result_pairs_arr
+        UnionFind U
+        np.intp_t result_edges
+        np.ndarray result_value_arr
+        np.ndarray result_pairs_arr
 
     def __init__(self, algorithm, tree, max_neighbors_search=16, metric='euclidean', leaf_size=20, is_slow = 0, **kwargs):
 
@@ -325,8 +327,8 @@ cdef class UniversalReciprocity (object):
                 order, order_min, \
                 dis, rank_dis, old_dis
 
-            # np.ndarray[np.intp_t, ndim=1] indices, ind_opp
-            # np.ndarray[np.double_t, ndim=1] distances, dis_opp
+            np.ndarray indices, ind_opp
+            np.ndarray distances, dis_opp
 
         parent = self.U.fast_find(i)
         indices, distances = knn_indices[i], knn_dist[i]
