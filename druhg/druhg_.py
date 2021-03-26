@@ -107,6 +107,9 @@ def druhg(X, max_ranking=16,
     None
 
     """
+    if type(X) is list:
+        raise ValueError('X must be array! Not a list!')
+
     size = X.shape[0]
 
     if max_ranking is not None:
