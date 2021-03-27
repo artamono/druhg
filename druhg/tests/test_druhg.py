@@ -66,6 +66,12 @@ def test_plot_mst():
     dr.fit(XX)
     dr.minimum_spanning_tree_.plot()
 
+def test_plot_dendrogram():
+    iris = datasets.load_iris()
+    XX = iris['data']
+    dr = DRUHG(max_ranking=50, limit2=int(len(XX)/2),fix_outliers=1) #, limit1=0, limit2=int(len(XX)/2), fix_outliers=1)
+    dr.fit(XX)
+    dr.single_linkage_.plot()
 
 def test_plot_one_dimension():
     iris = datasets.load_iris()
