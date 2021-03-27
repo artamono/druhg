@@ -23,7 +23,7 @@ from warnings import warn
 from ._druhg_tree import UniversalReciprocity
 from ._druhg_label import label
 
-from .plots import MinimumSpanningTree
+from .plots import MinimumSpanningTree, SingleLinkage
 
 
 def druhg(X, max_ranking=16,
@@ -344,6 +344,19 @@ class DRUHG(BaseEstimator, ClusterMixin):
             if self._raw_data is not None:
                 return MinimumSpanningTree(self.mst_,
                                            self._raw_data,
+                                           self.labels_)
+            else:
+                warn('No raw data is available.')
+                return None
+        else:
+            raise AttributeError('No minimum spanning tree was generated.')
+
+    @property
+    def single_linkage_(self):
+        if self.mst_ is not None:
+            if self._raw_data is not None:
+                return SingleLinkage(self.mst_,
+                                           self.values_,
                                            self.labels_)
             else:
                 warn('No raw data is available.')
