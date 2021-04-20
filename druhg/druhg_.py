@@ -335,8 +335,8 @@ class DRUHG(BaseEstimator, ClusterMixin):
 
         if printout:
             print ('Relabeling using defaults for: ' + printout)
-
-        return label(self.mst_, self.values_, self._size, exclude, limit1, limit2, fix_outliers)
+        self.labels_ = label(self.mst_, self.values_, self._size, exclude, limit1, limit2, fix_outliers)
+        return self.labels_
 
     @property
     def minimum_spanning_tree_(self):
