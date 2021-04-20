@@ -18,7 +18,7 @@ from sklearn.neighbors import KDTree, BallTree
 # from sklearn.externals import six
 from warnings import warn
 # from sklearn.utils import check_array
-# from sklearn.externals.joblib.parallel import cpu_count
+from joblib.parallel import cpu_count
 
 from ._druhg_tree import UniversalReciprocity
 from ._druhg_label import label
@@ -30,7 +30,7 @@ def druhg(X, max_ranking=16,
           limit1=None, limit2=None, exclude=None, fix_outliers=0,
           metric='minkowski', p=2,
           algorithm='best', leaf_size=40,
-          verbose=False, **kwargs):
+          verbose=False, core_n_jobs = None,  **kwargs):
     """Perform DRUHG clustering from a vector array or distance matrix.
 
     Parameters
@@ -44,13 +44,15 @@ def druhg(X, max_ranking=16,
         The maximum number of neighbors to search.
         Affects performance vs precision.
 
-    limit1 : int, optional (default=sqrt(size))
+    limit1 : float, optional (default=sqrt(size))
         Clusters that are smaller than this limit treated as noise.
         Use 1 to find True outliers.
+        Numbers under 1 treated as percentage of the dataset size
 
-    limit2 : int, optional (default=size/2)
+    limit2 : float, optional (default=size/2)
         Clusters with size OVER this limit treated as noise.
         Use it to break down big clusters.
+        Numbers under 1 treated as percentage of the dataset size
 
     exclude: list, optional (default=None)
         Clusters with these indexes would not be formed.
@@ -86,6 +88,11 @@ def druhg(X, max_ranking=16,
         If you want it to be accurate add:
             * ``slow``
 
+    core_n_jobs : int, optional (default=None)
+        Number of parallel jobs to run in neighbors distance computations (if
+        supported by the specific algorithm).
+        For default, (n_cpus + 1 + core_dist_n_jobs) is used.
+
     **kwargs : optional
         Arguments passed to the distance metric
 
@@ -111,6 +118,11 @@ def druhg(X, max_ranking=16,
         raise ValueError('X must be array! Not a list!')
 
     size = X.shape[0]
+
+    if core_n_jobs is None:
+        core_n_jobs = max(cpu_count(), 1)
+    elif core_n_jobs < 0:
+        core_n_jobs = max(cpu_count() + 1 + core_n_jobs, 1)
 
     if max_ranking is not None:
         if type(max_ranking) is not int:
@@ -138,18 +150,19 @@ def druhg(X, max_ranking=16,
         limit1 = int(np.sqrt(size))
         printout += 'limit1 is set to '+str(limit1)+', '
     else:
-        if type(limit1) is not int:
-             raise ValueError('Limit1 must be integer!', limit1, type(limit1))
         if limit1 < 0:
             raise ValueError('Limit1 must be non-negative integer!')
+        if limit1 < 1:
+            limit1 = int(limit1*size)
+
     if limit2 is None:
         limit2 = int(size/2 + 1)
         printout += 'limit2 is set to '+str(limit2)+', '
     else:
-        if type(limit2) is not int:
-             raise ValueError('Limit2 must be integer!', limit2, type(limit2))
         if limit2 < 0:
             raise ValueError('Limit2 must be non-negative integer!')
+        if limit2 <= 1:
+            limit2 = int(limit2*size + 1)
 
     if algorithm == 'best':
         algorithm = 'kd_tree'
@@ -195,11 +208,11 @@ def druhg(X, max_ranking=16,
     if printout:
         print ('Druhg is using defaults for: ' + printout)
 
-    ur = UniversalReciprocity(algo_code, tree, max_ranking, metric, leaf_size//3, is_slow_and_deterministic)
+    ur = UniversalReciprocity(algo_code, tree, max_neighbors_search = max_ranking, metric = metric, leaf_size = leaf_size//3, is_slow = is_slow_and_deterministic, n_jobs = core_n_jobs, **kwargs)
 
     pairs, values = ur.get_tree()
 
-    labels = label(pairs, values, size, exclude=exclude, limit1=limit1, limit2=limit2, fix_outliers=fix_outliers)
+    labels = label(pairs, values, size, exclude=exclude, limit1=int(limit1), limit2=int(limit2), fix_outliers=fix_outliers)
 
     return (labels,
             pairs, values
@@ -215,6 +228,7 @@ class DRUHG(BaseEstimator, ClusterMixin):
                  fix_outliers=0,
                  leaf_size=40,
                  verbose=False,
+                 core_n_jobs = None,
                  **kwargs):
         self.max_ranking = max_ranking
         self.limit1 = limit1
@@ -225,6 +239,7 @@ class DRUHG(BaseEstimator, ClusterMixin):
         self.algorithm = algorithm
         self.verbose = verbose
         self.leaf_size = leaf_size
+        self.core_n_jobs = core_n_jobs
         self._metric_kwargs = kwargs
 
         # self._outlier_scores = None
@@ -315,19 +330,19 @@ class DRUHG(BaseEstimator, ClusterMixin):
             limit1 = int(np.sqrt(size))
             printout += 'limit1 is set to ' + str(limit1) + ', '
         else:
-            if type(limit1) is not int:
-                raise ValueError('Limit1 must be integer!')
             if limit1 < 0:
                 raise ValueError('Limit1 must be non-negative integer!')
+            if limit1 < 1:
+                limit1 = int(limit1 * size)
 
         if limit2 is None:
             limit2 = int(size / 2 + 1)
             printout += 'limit2 is set to ' + str(limit2) + ', '
         else:
-            if type(limit2) is not int:
-                raise ValueError('Limit2 must be integer!')
             if limit2 < 0:
                 raise ValueError('Limit2 must be non-negative integer!')
+            if limit2 <= 1:
+                limit2 = int(limit2 * size + 1)
 
         if fix_outliers is None:
             fix_outliers = 0
@@ -335,7 +350,7 @@ class DRUHG(BaseEstimator, ClusterMixin):
 
         if printout:
             print ('Relabeling using defaults for: ' + printout)
-        self.labels_ = label(self.mst_, self.values_, self._size, exclude, limit1, limit2, fix_outliers)
+        self.labels_ = label(self.mst_, self.values_, self._size, exclude, int(limit1), int(limit2), fix_outliers)
         return self.labels_
 
     @property

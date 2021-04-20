@@ -10,28 +10,22 @@
 # Author: Pavel "DRUHG" Artamonov
 # License: 3-clause BSD
 
-
 import numpy as np
 cimport numpy as np
 import sys
 
 import _heapq as heapq
-
-from libc.stdlib cimport malloc, free
+from libc.math cimport fabs, pow
+import bisect
 
 # cdef np.double_t INF = np.inf
 cdef np.double_t INF = sys.float_info.max
 # cdef np.double_t EPS = sys.float_info.min
 
-
-from libc.math cimport fabs, pow
-
 from sklearn.neighbors import KDTree, BallTree
-from sklearn import preprocessing
+# from sklearn import preprocessing
+from joblib import Parallel, delayed
 
-import bisect
-
-# from sklearn.externals.joblib import Parallel, delayed
 
 cdef class PairwiseDistanceTreeSparse(object):
     cdef object data_arr
@@ -188,14 +182,17 @@ cdef class UniversalReciprocity (object):
 
         np.intp_t max_neighbors_search
 
+        np.intp_t n_jobs
+
         UnionFind U
         np.intp_t result_edges
         np.ndarray result_value_arr
         np.ndarray result_pairs_arr
 
-    def __init__(self, algorithm, tree, max_neighbors_search=16, metric='euclidean', leaf_size=20, is_slow = 0, double_precision = 0.000001, **kwargs):
+    def __init__(self, algorithm, tree, max_neighbors_search=16, metric='euclidean', leaf_size=20, is_slow = 0, n_jobs = 4, **kwargs):
 
-        self.PRECISION = double_precision
+        self.PRECISION = kwargs.get('double_precision', 0.000001) # this is only relevant if distances between datapoints are super small
+        self.n_jobs = n_jobs
 
         if algorithm == 0:
             self.dist_tree = tree
@@ -429,7 +426,6 @@ cdef class UniversalReciprocity (object):
 
         return res
 
-
     cdef _compute_tree_edges(self, is_slow):
         # if algorithm == 'deterministic' or algorithm == 'slow':
         if is_slow:
@@ -455,12 +451,33 @@ cdef class UniversalReciprocity (object):
             np.ndarray[np.double_t, ndim=2] knn_dist
             np.ndarray[np.intp_t, ndim=2] knn_indices
 
-        knn_dist, knn_indices = self.dist_tree.query(
-                    self.tree.data,
-                    k=self.max_neighbors_search + 1,
-                    dualtree=True,
-                    breadth_first=True,
-                    )
+        if self.tree.data.shape[0] > 16384 and self.n_jobs > 1: # multicore 2-3x speed up for big datasets
+            split_cnt = self.num_points // self.n_jobs
+            datasets = []
+            for i in range(self.n_jobs):
+                if i == self.n_jobs - 1:
+                    datasets.append(np.asarray(self.tree.data[i*split_cnt:]))
+                else:
+                    datasets.append(np.asarray(self.tree.data[i*split_cnt:(i+1)*split_cnt]))
+
+            knn_data = Parallel(n_jobs=self.n_jobs)(
+                delayed(self.tree.query)
+                (points,
+                 self.max_neighbors_search + 1,
+                 dualtree=True,
+                 breadth_first=True
+                 )
+                for points in datasets)
+            knn_dist = np.vstack([x[0] for x in knn_data])
+            knn_indices = np.vstack([x[1] for x in knn_data])
+        else:
+            knn_dist, knn_indices = self.dist_tree.query(
+                        self.tree.data,
+                        k=self.max_neighbors_search + 1,
+                        dualtree=True,
+                        breadth_first=True,
+                        )
+
         warn = 0
         heap, restart = [], []
 #### Initialization of pure reciprocity then ranks are less than 2
@@ -560,12 +577,32 @@ cdef class UniversalReciprocity (object):
         target_arr = -1*np.ones(self.num_points + 1, dtype=np.intp)
         target = (<np.intp_t *> target_arr.data)
 
-        knn_dist, knn_indices = self.dist_tree.query(
-                    self.tree.data,
-                    k=self.max_neighbors_search + 1,
-                    dualtree=True,
-                    breadth_first=True,
-                    )
+        if self.tree.data.shape[0] > 16384 and self.n_jobs > 1: # multicore 2-3x speed up for big datasets
+            split_cnt = self.num_points // self.n_jobs
+            datasets = []
+            for i in range(self.n_jobs):
+                if i == self.n_jobs - 1:
+                    datasets.append(np.asarray(self.tree.data[i*split_cnt:]))
+                else:
+                    datasets.append(np.asarray(self.tree.data[i*split_cnt:(i+1)*split_cnt]))
+
+            knn_data = Parallel(n_jobs=self.n_jobs)(
+                delayed(self.tree.query)
+                (points,
+                 self.max_neighbors_search + 1,
+                 dualtree=True,
+                 breadth_first=True
+                 )
+                for points in datasets)
+            knn_dist = np.vstack([x[0] for x in knn_data])
+            knn_indices = np.vstack([x[1] for x in knn_data])
+        else:
+            knn_dist, knn_indices = self.dist_tree.query(
+                        self.tree.data,
+                        k=self.max_neighbors_search + 1,
+                        dualtree=True,
+                        breadth_first=True,
+                        )
 
         warn = 0
         heap, discard = [], []
