@@ -15,7 +15,6 @@ import sys
 
 cdef np.double_t EPS = sys.float_info.min
 
-
 from libc.math cimport fabs, pow
 
 cdef np.double_t merge_means(np.intp_t na, np.double_t meana,
@@ -43,30 +42,34 @@ cdef class Amalgamation (object):
         self.energy = energy
         self.clusters = clusters
 
+    cdef void _amalgamate(self, np.intp_t size, np.double_t energy, np.intp_t clusters):
+        # self.energy += energy
+        self.energy = merge_means(self.clusters, self.energy, clusters, energy) # храним среднее для лучшей точности
+        self.size += size
+        self.clusters += clusters
 
-    cdef np.double_t _whole(self, np.double_t g, Amalgamation other):
-        cdef np.double_t quality, quantity, measure
-
-        quality = pow(g, 1.)
-        quantity = pow(1.*min(self.size, other.size), 0.5)
-        measure = pow((1.*self.clusters + other.clusters)/max(self.clusters, other.clusters), 0.25)
-
-        # print (max(self.size, other.size), min(self.size, other.size), 'whole', 1.*quality*quantity*measure,'=', 1.*self.clusters, quality, quantity, measure)
-        return 1.*quality*quantity*measure
-
-    cdef np.intp_t limit_to_ought(self, np.double_t g, Amalgamation other):
+    cdef np.double_t border_overcoming(self, np.double_t g, Amalgamation other):
+        # returns negative if clusterization didn't happen
+        # limit_to_ought:
         # Die Schranke und das Sollen
         # can a new whole overcome its' parts?
-        cdef np.double_t whole
+        cdef np.double_t limit, jump
 
-        whole = self._whole(g, other)
-        # print (whole > self.energy + EPS, whole, self.energy + EPS)
-        return whole > self.energy + EPS
+        limit = g * pow(1.*min(self.size, other.size), 0.5)
+        # limit *= self.clusters # No need of multiplying when working with merge means
+        #* pow((1.*self.clusters + other.clusters)/max(self.clusters, other.clusters), +0.25) - this is an interesting idea, may be it will help us in the future
 
-    cdef Amalgamation merge_amalgamations(self, np.double_t g, Amalgamation other):
+        jump = -1.
+        if limit >= self.energy:
+            jump = g * self.size
+        # if self.size > 1 or other.size==1:
+        #     print (min(self.size, other.size) > 1, other.size, brd.limit > self.energy, self.size, self.clusters, 'dis', brd.dis, 'lim', brd.limit, self.energy )
+        return jump
+
+    cdef Amalgamation merge_amalgamations(self, np.double_t g, Amalgamation other, np.double_t jump1, np.double_t jump2):
         cdef:
             np.intp_t osize, oclusters
-            np.double_t whole, oenergy
+            np.double_t oenergy
             Amalgamation ret
 
         ret = self
@@ -74,23 +77,15 @@ cdef class Amalgamation (object):
             ret = Amalgamation(1, 0., 1)
 # ----------------------
         osize, oenergy, oclusters = other.size, other.energy, other.clusters
-
-        whole = self._whole(g, other)
 # ----------------------
-        if whole > self.energy + EPS:
-            ret.energy = whole*ret.size
+        if jump1 >= 0:
+            ret.energy = jump1
             ret.clusters = 1
 # ----------------------
-        if whole > oenergy + EPS:
-            oenergy = whole*osize
+        if jump2 >= 0:
+            oenergy = jump2
             oclusters = 1
 # ----------------------
 
         ret._amalgamate(osize, oenergy, oclusters)
         return ret
-
-    cdef void _amalgamate(self, np.intp_t size, np.double_t energy, np.intp_t clusters):
-        # self.energy += energy
-        self.energy = merge_means(self.clusters, self.energy, clusters, energy)
-        self.size += size
-        self.clusters += clusters
