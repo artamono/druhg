@@ -21,7 +21,7 @@ from libc.stdlib cimport malloc, free
 
 # cdef np.double_t INF = np.inf
 cdef np.double_t INF = sys.float_info.max
-cdef np.double_t EPS = sys.float_info.min
+# cdef np.double_t EPS = sys.float_info.min
 
 
 from libc.math cimport fabs, pow
@@ -508,7 +508,7 @@ cdef class UniversalReciprocity (object):
 
                 if self._evaluate_reciprocity(i, knn_indices, knn_dist, &rel):
                     restart.append((rel.upper_bound, i))
-                    if rel.reciprocity + EPS < best_rel.reciprocity:
+                    if rel.reciprocity + self.PRECISION < best_rel.reciprocity:
                         best_rel = rel
                         best_rel.index = i
 
