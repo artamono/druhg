@@ -40,6 +40,8 @@ class SingleLinkage(object):
         try:
             from matplotlib import collections as mc
             from matplotlib.pyplot import Arrow
+            from matplotlib.pyplot import Normalize
+            from matplotlib.pyplot import cm
         except ImportError:
             raise ImportError('You must install the matplotlib library to plot the minimum spanning tree.')
 

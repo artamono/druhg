@@ -20,6 +20,7 @@ cimport numpy as np
 from ._druhg_amalgamation import Amalgamation
 from ._druhg_amalgamation cimport Amalgamation
 
+
 cdef class UnionFind (object):
 
     cdef:
@@ -160,6 +161,7 @@ cdef set emerge_clusters(UnionFind U, np.ndarray edges_arr, np.ndarray values_ar
         np.intp_t e1,e2,e3, p1,p2, i, c
         np.double_t v
         Amalgamation being, being1, being2, being3
+        np.double_t jump1, jump2
         list disc
         dict d
         set clusters
@@ -182,19 +184,22 @@ cdef set emerge_clusters(UnionFind U, np.ndarray edges_arr, np.ndarray values_ar
         if U.has_parent(e2):
             being2 = d.pop(p2)
 
+        jump1 = being1.border_overcoming(v, being2)
+        jump2 = being2.border_overcoming(v, being1)
+
         if being1.size > 1 \
-            and being1.limit_to_ought(v, being2) \
+            and jump1 >= 0 \
             and limit1 < being1.size < limit2 \
             and p1 not in exclude:
             clusters.add(p1)
 
         if being2.size > 1 \
-            and being2.limit_to_ought(v, being1) \
+            and jump2 >= 0 \
             and limit1 < being2.size < limit2 \
             and p2 not in exclude:
             clusters.add(p2)
 
-        being3 = being1.merge_amalgamations(v, being2)
+        being3 = being1.merge_amalgamations(v, being2, jump1, jump2)
         e3 = U.passive_union(U.passive_find(e1), U.passive_find(e2))
         # print(p1,p2,e3)
         d[e3] = being3

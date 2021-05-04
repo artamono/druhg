@@ -10,27 +10,22 @@
 # Author: Pavel "DRUHG" Artamonov
 # License: 3-clause BSD
 
-
 import numpy as np
 cimport numpy as np
 import sys
 
 import _heapq as heapq
-
-from libc.stdlib cimport malloc, free
+from libc.math cimport fabs, pow
+import bisect
 
 # cdef np.double_t INF = np.inf
 cdef np.double_t INF = sys.float_info.max
-cdef np.double_t EPS = sys.float_info.min
-
-from libc.math cimport fabs, pow
+# cdef np.double_t EPS = sys.float_info.min
 
 from sklearn.neighbors import KDTree, BallTree
-from sklearn import preprocessing
+# from sklearn import preprocessing
+from joblib import Parallel, delayed
 
-import bisect
-
-# from sklearn.externals.joblib import Parallel, delayed
 
 cdef class PairwiseDistanceTreeSparse(object):
     cdef object data_arr
@@ -180,17 +175,24 @@ cdef class UniversalReciprocity (object):
         object tree
         object dist_tree
 
+        np.double_t PRECISION
+
         np.intp_t num_points
         np.intp_t num_features
 
         np.intp_t max_neighbors_search
+
+        np.intp_t n_jobs
 
         UnionFind U
         np.intp_t result_edges
         np.ndarray result_value_arr
         np.ndarray result_pairs_arr
 
-    def __init__(self, algorithm, tree, max_neighbors_search=16, metric='euclidean', leaf_size=20, is_slow = 0, **kwargs):
+    def __init__(self, algorithm, tree, max_neighbors_search=16, metric='euclidean', leaf_size=20, is_slow = 0, n_jobs = 4, **kwargs):
+
+        self.PRECISION = kwargs.get('double_precision', 0.000001) # this is only relevant if distances between datapoints are super small
+        self.n_jobs = n_jobs
 
         if algorithm == 0:
             self.dist_tree = tree
@@ -227,14 +229,22 @@ cdef class UniversalReciprocity (object):
     cpdef tuple get_tree(self):
         return (self.result_pairs_arr[:self.result_edges*2].astype(int), self.result_value_arr[:self.result_edges])
 
-    cdef void result_add_edge(self, np.intp_t a, np.intp_t b, np.double_t val):
+    cdef void result_add_edge(self, np.intp_t a, np.intp_t b, Relation* rel):
         cdef np.intp_t i
 
         i = self.result_edges
+        self.result_edges += 1
+
         self.result_pairs_arr[2*i] = a
         self.result_pairs_arr[2*i + 1] = b
-        self.result_value_arr[i] = val
-        self.result_edges += 1
+        self.result_value_arr[i] = pow(rel.rec_dis, 2.)*(rel.rec_rank + rel.penalty)
+
+        # Не понятно нужна ли мера на следующей стадии? С ней и без неё результаты почти сходятся.
+        # Скорее всего она исчезает только после появления кластера. То есть для _druhg_amalgamation.border_overcoming будут две g, до и после. Тащить отдельно нет желания.
+        # self.result_value_arr[i] *= pow(1.*rel.my_members/rel.rec_members, 0.5)
+
+        # print(self.result_value_arr[i], self.result_edges, a,b, rel.rec_dis, rel.rec_rank + rel.penalty, rel.my_members, rel.rec_members)
+
 
     cdef bint _pure_reciprocity(self, np.intp_t i, np.ndarray[np.intp_t, ndim=2] knn_indices, np.ndarray[np.double_t, ndim=2] knn_dist, Relation* rel):
         """Finding pure reciprocal pairs(both ranks = 2)
@@ -292,15 +302,15 @@ cdef class UniversalReciprocity (object):
 
                 return ranki + 1
 
-            rank_left = bisect.bisect(distances, dis)
+            rank_left = bisect.bisect(distances, dis + self.PRECISION)
             if rank_left > 2:
                 return 0
 
-            rank_right = bisect.bisect(knn_dist[j], dis)
+            rank_right = bisect.bisect(knn_dist[j], dis + self.PRECISION)
             if rank_right > 2:
                 return 0
 
-            rel.reciprocity = pow(dis,2)*2.
+            rel.reciprocity = pow(dis,4)*4.
             rel.target = j
             rel.my_rank = 2
             rel.rec_rank = 2
@@ -358,10 +368,10 @@ cdef class UniversalReciprocity (object):
                 break
 
             dis_opp = knn_dist[j]
-            rank_right = bisect.bisect(dis_opp, dis) # reminder that bisect.bisect(dis_opp, dis) >= bisect.bisect_left(dis_opp, dis)
+            rank_right = bisect.bisect(dis_opp, dis + self.PRECISION) # reminder that bisect.bisect(dis_opp, dis) >= bisect.bisect_left(dis_opp, dis)
             if ranki > rank_right:
                 continue
-            rank_left = bisect.bisect(distances, dis)
+            rank_left = bisect.bisect(distances, dis + self.PRECISION)
             if rank_left > rank_right:
                 continue
 
@@ -389,6 +399,7 @@ cdef class UniversalReciprocity (object):
             # val3 = 1.*members/opp_members # [мера] без этого не обеспечить равномерное прирастание. 1/(rank_right - 1) < val3 < rank_right - 1
 
             order_min = pow(rank_dis, 4) * pow(rank_right + penalty, 2) * members # WARNING: `members` are counted improperly. If ranki != rank_left, then this pair might have same dist as the other. Real members might be higher.
+
             order = order_min / opp_members # WARNING: `opp_members` can be zero if knn_indices doesn't have itself. This rare case is possible when amount of equal objects less than K neighbors. `pure_reciprocity` initialization fixes this
             order_min = order_min / (rank_right - opp_is_reachable) # dividing by how many can be.
             if order_min < opt_min:
@@ -407,11 +418,13 @@ cdef class UniversalReciprocity (object):
                 rel.my_dis = dis
                 rel.rec_dis = rank_dis
                 rel.penalty = penalty
-                rel.my_members = rank_right - opp_is_reachable
+                rel.my_members = members
                 rel.rec_members = opp_members
+                rel.upper_members = rank_right - opp_is_reachable
+
+                # rel.value = pow(rel.rec_dis, 2) * (rel.rec_rank + rel.penalty) * pow(1.*rel.my_members/rel.rec_members, 0.5)
 
         return res
-
 
     cdef _compute_tree_edges(self, is_slow):
         # if algorithm == 'deterministic' or algorithm == 'slow':
@@ -438,12 +451,33 @@ cdef class UniversalReciprocity (object):
             np.ndarray[np.double_t, ndim=2] knn_dist
             np.ndarray[np.intp_t, ndim=2] knn_indices
 
-        knn_dist, knn_indices = self.dist_tree.query(
-                    self.tree.data,
-                    k=self.max_neighbors_search + 1,
-                    dualtree=True,
-                    breadth_first=True,
-                    )
+        if self.tree.data.shape[0] > 16384 and self.n_jobs > 1: # multicore 2-3x speed up for big datasets
+            split_cnt = self.num_points // self.n_jobs
+            datasets = []
+            for i in range(self.n_jobs):
+                if i == self.n_jobs - 1:
+                    datasets.append(np.asarray(self.tree.data[i*split_cnt:]))
+                else:
+                    datasets.append(np.asarray(self.tree.data[i*split_cnt:(i+1)*split_cnt]))
+
+            knn_data = Parallel(n_jobs=self.n_jobs)(
+                delayed(self.tree.query)
+                (points,
+                 self.max_neighbors_search + 1,
+                 dualtree=True,
+                 breadth_first=True
+                 )
+                for points in datasets)
+            knn_dist = np.vstack([x[0] for x in knn_data])
+            knn_indices = np.vstack([x[1] for x in knn_data])
+        else:
+            knn_dist, knn_indices = self.dist_tree.query(
+                        self.tree.data,
+                        k=self.max_neighbors_search + 1,
+                        dualtree=True,
+                        breadth_first=True,
+                        )
+
         warn = 0
         heap, restart = [], []
 #### Initialization of pure reciprocity then ranks are less than 2
@@ -457,7 +491,7 @@ cdef class UniversalReciprocity (object):
             rel.reciprocity = 1.
             if self._pure_reciprocity(i, knn_indices, knn_dist, &rel):
                 self.U.union(i, rel.target)
-                self.result_add_edge(i, rel.target, rel.reciprocity)
+                self.result_add_edge(i, rel.target, &rel)
 
             if rel.reciprocity == 0.: # values match
                 warn += 1
@@ -491,7 +525,7 @@ cdef class UniversalReciprocity (object):
 
                 if self._evaluate_reciprocity(i, knn_indices, knn_dist, &rel):
                     restart.append((rel.upper_bound, i))
-                    if rel.reciprocity + EPS < best_rel.reciprocity:
+                    if rel.reciprocity + self.PRECISION < best_rel.reciprocity:
                         best_rel = rel
                         best_rel.index = i
 
@@ -500,7 +534,7 @@ cdef class UniversalReciprocity (object):
                 break
 
             self.U.union(best_rel.index, best_rel.target)
-            self.result_add_edge(best_rel.index, best_rel.target, pow(best_rel.reciprocity,0.5))
+            self.result_add_edge(best_rel.index, best_rel.target, &best_rel)
 
             if self._evaluate_reciprocity(best_rel.index, knn_indices, knn_dist, &rel):
                 heapq.heappush(heap, (rel.upper_bound, best_rel.index))
@@ -543,12 +577,32 @@ cdef class UniversalReciprocity (object):
         target_arr = -1*np.ones(self.num_points + 1, dtype=np.intp)
         target = (<np.intp_t *> target_arr.data)
 
-        knn_dist, knn_indices = self.dist_tree.query(
-                    self.tree.data,
-                    k=self.max_neighbors_search + 1,
-                    dualtree=True,
-                    breadth_first=True,
-                    )
+        if self.tree.data.shape[0] > 16384 and self.n_jobs > 1: # multicore 2-3x speed up for big datasets
+            split_cnt = self.num_points // self.n_jobs
+            datasets = []
+            for i in range(self.n_jobs):
+                if i == self.n_jobs - 1:
+                    datasets.append(np.asarray(self.tree.data[i*split_cnt:]))
+                else:
+                    datasets.append(np.asarray(self.tree.data[i*split_cnt:(i+1)*split_cnt]))
+
+            knn_data = Parallel(n_jobs=self.n_jobs)(
+                delayed(self.tree.query)
+                (points,
+                 self.max_neighbors_search + 1,
+                 dualtree=True,
+                 breadth_first=True
+                 )
+                for points in datasets)
+            knn_dist = np.vstack([x[0] for x in knn_data])
+            knn_indices = np.vstack([x[1] for x in knn_data])
+        else:
+            knn_dist, knn_indices = self.dist_tree.query(
+                        self.tree.data,
+                        k=self.max_neighbors_search + 1,
+                        dualtree=True,
+                        breadth_first=True,
+                        )
 
         warn = 0
         heap, discard = [], []
@@ -565,7 +619,7 @@ cdef class UniversalReciprocity (object):
             rel.reciprocity = 1.
             if self._pure_reciprocity(i, knn_indices, knn_dist, &rel):
                 self.U.union(i, rel.target)
-                self.result_add_edge(i, rel.target, rel.reciprocity)
+                self.result_add_edge(i, rel.target, &rel)
                 # print ('pure', i,j, value)
             if rel.reciprocity == 0.: # values match
                 warn += 1
@@ -634,7 +688,7 @@ cdef class UniversalReciprocity (object):
             p2 = self.U.fast_find(rel.target)
             # adding edge
             self.U.union(best_i, rel.target)
-            self.result_add_edge(best_i, rel.target, pow(rel.reciprocity,0.5))
+            self.result_add_edge(best_i, rel.target, &rel)
 
             # update of all who targeted new amalgamation
             p = self.U.fast_find(best_i) # after union

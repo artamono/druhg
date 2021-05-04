@@ -4,6 +4,7 @@ cimport numpy as np
 cdef struct Relation:
     np.double_t reciprocity
     np.double_t upper_bound
+    np.double_t jump
     np.intp_t target
     np.intp_t my_rank
     np.intp_t rec_rank
@@ -12,4 +13,6 @@ cdef struct Relation:
     np.intp_t penalty
     np.intp_t my_members
     np.intp_t rec_members
+    np.intp_t upper_members
     np.intp_t index
+    np.double_t value
