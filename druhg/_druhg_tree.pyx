@@ -191,7 +191,7 @@ cdef class UniversalReciprocity (object):
 
     def __init__(self, algorithm, tree, max_neighbors_search=16, metric='euclidean', leaf_size=20, is_slow = 0, n_jobs = 4, **kwargs):
 
-        self.PRECISION = kwargs.get('double_precision', 0.000001) # this is only relevant if distances between datapoints are super small
+        self.PRECISION = kwargs.get('double_precision', 0.0000001) # this is only relevant if distances between datapoints are super small
         self.n_jobs = n_jobs
 
         if algorithm == 0:
@@ -237,16 +237,16 @@ cdef class UniversalReciprocity (object):
 
         self.result_pairs_arr[2*i] = a
         self.result_pairs_arr[2*i + 1] = b
-        self.result_value_arr[i] = pow(rel.rec_dis, 2.)*(rel.rec_rank + rel.penalty)
+        self.result_value_arr[i] = pow(rel.rec_dis, 2.)
 
-        # Не понятно нужна ли мера на следующей стадии? С ней и без неё результаты почти сходятся.
-        # Скорее всего она исчезает только после появления кластера. То есть для _druhg_amalgamation.border_overcoming будут две g, до и после. Тащить отдельно нет желания.
+        # количественная и мостик составляющие нужны только на стадии определения направления,
+        # если тащить их дальше, то результат чуточку ухудшится
+        # self.result_value_arr[i] *= (rel.rec_rank + rel.penalty)
         # self.result_value_arr[i] *= pow(1.*rel.my_members/rel.rec_members, 0.5)
 
         # print(self.result_value_arr[i], self.result_edges, a,b, rel.rec_dis, rel.rec_rank + rel.penalty, rel.my_members, rel.rec_members)
 
-
-    cdef bint _pure_reciprocity(self, np.intp_t i, np.ndarray[np.intp_t, ndim=2] knn_indices, np.ndarray[np.double_t, ndim=2] knn_dist, Relation* rel):
+    cdef bint _pure_reciprocity(self, np.intp_t i, np.ndarray[np.intp_t, ndim=2] knn_indices, np.ndarray[np.double_t, ndim=2] knn_dist, Relation* rel, np.intp_t* infinitesimal):
         """Finding pure reciprocal pairs(both ranks = 2)
         And deals with equal objects.
         Runs as initialization, short version of evaluate_reciprocity.
@@ -268,6 +268,10 @@ cdef class UniversalReciprocity (object):
             Part of the output. Stores all significant parameters.            
             rel.reciprocity is zero if values are equal - it will lead to relaunch.
             rel.reciprocity is slightly different than in `evaluate_reciprocity`
+            
+        Infinitesimal: int
+            Part of the output. Return distances smaller than the self.PRECISION level.
+            Used to inform the user about hidden parameter.
             
         Returns
         -------
@@ -301,6 +305,9 @@ cdef class UniversalReciprocity (object):
                 rel.rec_members = 1
 
                 return ranki + 1
+
+            if dis <= self.PRECISION:
+                infinitesimal += 1
 
             rank_left = bisect.bisect(distances, dis + self.PRECISION)
             if rank_left > 2:
@@ -354,7 +361,7 @@ cdef class UniversalReciprocity (object):
             j = indices[ranki]
             dis = distances[ranki]
 
-            if dis != old_dis:
+            if dis > old_dis + self.PRECISION:
                 members += equal_members
                 old_dis = dis
                 equal_members = 0
@@ -441,7 +448,7 @@ cdef class UniversalReciprocity (object):
 
         cdef:
             np.intp_t i, k, \
-                warn
+                warn, infinitesimal
 
             np.double_t upper_bound
             list restart, heap
@@ -478,7 +485,7 @@ cdef class UniversalReciprocity (object):
                         breadth_first=True,
                         )
 
-        warn = 0
+        warn, infinitesimal = 0, 0
         heap, restart = [], []
 #### Initialization of pure reciprocity then ranks are less than 2
         i = self.num_points
@@ -489,7 +496,7 @@ cdef class UniversalReciprocity (object):
                 return
 
             rel.reciprocity = 1.
-            if self._pure_reciprocity(i, knn_indices, knn_dist, &rel):
+            if self._pure_reciprocity(i, knn_indices, knn_dist, &rel, &infinitesimal):
                 self.U.union(i, rel.target)
                 self.result_add_edge(i, rel.target, &rel)
 
@@ -505,7 +512,10 @@ cdef class UniversalReciprocity (object):
                 heapq.heappush(heap, (rel.upper_bound, i))
 
         if warn > 0:
-            print ('A lot of values are the same. Try increasing self.max_neighbors_search.', warn)
+            print ('A lot of values(',warn,') are the same. Try increasing max_neighbors_search(',self.max_neighbors_search,') parameter.')
+
+        if infinitesimal > 0:
+            print ('Some distances(', infinitesimal, ') are smaller than self.PRECISION (', self.PRECISION,') level. Try decreasing double_precision parameter.')
 
         if self.result_edges >= self.num_points - 1:
             print ('Two subjects only')
@@ -525,7 +535,7 @@ cdef class UniversalReciprocity (object):
 
                 if self._evaluate_reciprocity(i, knn_indices, knn_dist, &rel):
                     restart.append((rel.upper_bound, i))
-                    if rel.reciprocity + self.PRECISION < best_rel.reciprocity:
+                    if rel.reciprocity < best_rel.reciprocity:
                         best_rel = rel
                         best_rel.index = i
 
@@ -554,7 +564,8 @@ cdef class UniversalReciprocity (object):
         cdef:
             np.intp_t i, best_i, \
                 p, p1, p2, \
-                warn, has_data
+                warn, infinitesimal, \
+                has_data
             np.double_t upper_bound, best_value
             list discard, heap
             set _set, s
@@ -604,7 +615,7 @@ cdef class UniversalReciprocity (object):
                         breadth_first=True,
                         )
 
-        warn = 0
+        warn, infinitesimal = 0, 0
         heap, discard = [], []
         amal_dic = {}
 #### Initialization of pure reciprocity then ranks are less than 2
@@ -617,7 +628,7 @@ cdef class UniversalReciprocity (object):
 
             upper[i] = INF
             rel.reciprocity = 1.
-            if self._pure_reciprocity(i, knn_indices, knn_dist, &rel):
+            if self._pure_reciprocity(i, knn_indices, knn_dist, &rel, &infinitesimal):
                 self.U.union(i, rel.target)
                 self.result_add_edge(i, rel.target, &rel)
                 # print ('pure', i,j, value)
@@ -639,7 +650,10 @@ cdef class UniversalReciprocity (object):
                 amal_dic[p].add(i)
 
         if warn > 0:
-            print ('A lot of values are the same. Try increasing self.max_neighbors_search.', warn)
+            print ('A lot of values(', warn,') are the same. Try increasing max_neighbors_search(', self.max_neighbors_search,') parameter.')
+
+        if infinitesimal > 0:
+            print ('Some distances(', infinitesimal, ') are smaller than self.PRECISION (', self.PRECISION,') level. Try decreasing double_precision parameter.')
 
         if self.result_edges >= self.num_points - 1:
             print ('Two subjects only. Edges ', self.result_edges, '. Data points ', self.num_points - 1)

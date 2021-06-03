@@ -56,8 +56,9 @@ cdef class Amalgamation (object):
         cdef np.double_t limit, jump
 
         limit = g * pow(1.*min(self.size, other.size), 0.5)
+
         # limit *= self.clusters # No need of multiplying when working with merge means
-        #* pow((1.*self.clusters + other.clusters)/max(self.clusters, other.clusters), +0.25) - this is an interesting idea, may be it will help us in the future
+        #* pow((1.*self.clusters + other.clusters)/max(self.clusters, other.clusters), +0.25) - this is an interesting idea, maybe it will help us in the future
 
         jump = -1.
         if limit >= self.energy:
