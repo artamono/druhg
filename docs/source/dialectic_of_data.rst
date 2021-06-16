@@ -446,15 +446,14 @@ DRUHG — Диалектический Ранговый Универсальны
 Pseudocode
 ##########
 
-.. code:: RST
+.. code-block:: RST
 
    INPUT datapoints and metric
 
 
-.. code:: RST
-   :emphasize-lines: 1
+``Build MST: Array of point pairs and their weights.``
 
-   Build MST: Array of point pairs and their weights.
+.. code-block:: RST
 
    (INIT)
    FOR every point:
@@ -487,11 +486,9 @@ Pseudocode
 
       Add Edge to the tree
 
+``Label clusters: Every datapoint has it's cluster label.``
 
-.. code:: RST
-   :emphasize-lines: 1
-
-   Label clusters: Every datapoint has it's cluster label.
+.. code-block:: RST
    
    INIT Limits(energies) of points to 0.
    
