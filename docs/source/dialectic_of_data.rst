@@ -158,7 +158,7 @@ DRUHG — Диалектический Ранговый Универсальны
 | Посмотрим на эти отношения с двух сторон, с качественной и количественной:
 | *Количества*-ранги различаются: рангLK :math:`\neq` рангKL.
 | *Качества*-расстояния на первый взгляд равны. Но только на первый взгляд. Категория *качество* означает внутренние свойства объекта. *Качества* не доступны для внешнего наблюдателя. Передать *качество* невозможно.
-| Субъект K не знает, как к нему относится L, он может только посчитать какой он в нумерации L.
+| Субъект K не знает, как к нему относится L, он может только посчитать какой он в нумерацAии L.
 | :underlined:`Чтобы получить чужое качество, нужно взять своё качество чужого количества.`
 | Тогда для обоих участников качества будут равны с их точки зрения и противоречие будет устранено.
 
@@ -446,12 +446,15 @@ DRUHG — Диалектический Ранговый Универсальны
 Pseudocode
 ##########
 
+``DRUHG``: Dialectical Ranking Universal Hierarchical Grouper.
+
 .. code-block:: RST
 
    INPUT datapoints and metric
+   No parameters
 
 
-``Build MST: Array of point pairs and their weights.``
+``Build MST``: Array of point pairs and their weights.
 
 .. code-block:: RST
 
@@ -486,7 +489,7 @@ Pseudocode
 
       Add Edge to the tree
 
-``Label clusters: Every datapoint has it's cluster label.``
+``Label clusters``: Every datapoint has it's cluster label.
 
 .. code-block:: RST
    
