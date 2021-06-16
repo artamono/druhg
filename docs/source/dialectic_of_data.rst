@@ -443,14 +443,17 @@ DRUHG — Диалектический Ранговый Универсальны
 | Таким образом мера это уже почти новая сущность. В нашем случае, субъект уже ощущает себя общностью. Действует за неё и для неё.
 
 
-Pseudo code
-###########
+Pseudocode
+##########
 
-.. code:: 
+.. code::
+
    INPUT datapoints and metric
 
-.. code:: 
-   Build MST: Array of point pairs and their weights.
+
+   ``Build MST: Array of point pairs and their weights.``
+   
+.. code::
 
    (INIT)
    FOR every point:
@@ -465,38 +468,40 @@ Pseudo code
    (Find minimal edge and connect to the tree)
    REPEAT until all edges are connected in one tree:
       
-      INIT optimal = INF  
+      INIT Optimal = INF  
    
       FOR every point:
          FOR every point's neighbor:
             IF point and neighbor are connected:
                PASS
 
-            Evaluate equation r * D^2 * sqrt(M/m):
+            Evaluate Equation r * D^2 * sqrt(M/m):
                r - rank of the point in neighbor's POV
                D - distance from the point to the neighbor of rank r
                M - how many neighbors the point has in the subtree limited by rank R
                m - how many neighbors the targeted neigbor has in it's subtree lmited by rank r
-            IF optimal < equation:
-               optimal = equation
+            IF Optimal < Equation:
+               Optimal = Equation
                MEMORIZE Edge = (point, neighbor, D^2)
 
       Add Edge to the tree
 
 
-.. code:: 
-   Label clusters: Every datapoint has it's cluster label.
+
+   ``Label clusters: Every datapoint has it's cluster label.``
+
+.. code::
 
    INIT Limits(energies) of points to 0.
    
    FOR every edge(pair, weight) from the MST(in order of appearing):
       
       FOR Left and Right subtrees:
-         Evaluate border equation K * D^2 * sqrt(min(N,N')):
+         Evaluate Border equation K * D^2 * sqrt(min(N,N')):
             K - number of clusters in that subtree
             D^2 - weight of the edge
             N and N' - amount of points in subtrees
-         IF border >= limit:
+         IF Border >= limit of subtree:
             That subtree is a cluster
             It's limit = N * D^2
       
