@@ -446,14 +446,15 @@ DRUHG — Диалектический Ранговый Универсальны
 Pseudocode
 ##########
 
-.. code::
+.. code:: RST
 
    INPUT datapoints and metric
 
 
-   ``Build MST: Array of point pairs and their weights.``
-   
-.. code::
+.. code:: RST
+   :emphasize-lines: 1
+
+   Build MST: Array of point pairs and their weights.
 
    (INIT)
    FOR every point:
@@ -461,9 +462,9 @@ Pseudocode
 
    (Pure reciprocity)
    FOR every point:
-      Add the edge to the tree: 
-         If it's nearest neighbor has the point as it's nearest. 
-         Weight = distance squared.
+      IF nearest neigbor has the point as it's nearest
+         Add the edge to the tree 
+         Weight = distance squared
 
    (Find minimal edge and connect to the tree)
    REPEAT until all edges are connected in one tree:
@@ -487,11 +488,11 @@ Pseudocode
       Add Edge to the tree
 
 
+.. code:: RST
+   :emphasize-lines: 1
 
-   ``Label clusters: Every datapoint has it's cluster label.``
-
-.. code::
-
+   Label clusters: Every datapoint has it's cluster label.
+   
    INIT Limits(energies) of points to 0.
    
    FOR every edge(pair, weight) from the MST(in order of appearing):
