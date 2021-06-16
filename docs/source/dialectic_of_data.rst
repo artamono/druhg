@@ -81,7 +81,13 @@ DRUHG — Диалектический Ранговый Универсальны
 | *Количество* — интенсивное многое, рассмотренное как одно. Определённость безразличная к изменениям. Внешняя сторона отношений.
 |
 | Чёткую терминологию знать не обязательно, хотя бы потому что её нет. Но стоит напрячься при виде курсива, так, на всяких случай.  
-| Приступим.
+
+.. note:: | можно пропустить рассуждения откуда что берётся. 
+          | перепрыгнуть на `Pseudocode`_ 
+          | на сравнение алгоритмов с картинками `Реализация на питоне`_
+
+
+Приступим.
 
    .. image:: ./pics/first/Base.png
       :width: 200px
@@ -435,6 +441,70 @@ DRUHG — Диалектический Ранговый Универсальны
 | *В мере соединены абстрактно выраженные качество и количество. Но такое количество, что оно имеет определённость не в себе самом, а в ином. Мера это соотносящаяся с самой собой внешность. Некая рефлексия в себя.*  
 | 
 | Таким образом мера это уже почти новая сущность. В нашем случае, субъект уже ощущает себя общностью. Действует за неё и для неё.
+
+
+Pseudo code
+###########
+
+.. code:: 
+   INPUT datapoints and metric
+
+.. code:: 
+   Build MST: Array of point pairs and their weights.
+
+   (INIT)
+   FOR every point:
+      Find it's near neighbors and distances.
+
+   (Pure reciprocity)
+   FOR every point:
+      Add the edge to the tree: 
+         If it's nearest neighbor has the point as it's nearest. 
+         Weight = distance squared.
+
+   (Find minimal edge and connect to the tree)
+   REPEAT until all edges are connected in one tree:
+      
+      INIT optimal = INF  
+   
+      FOR every point:
+         FOR every point's neighbor:
+            IF point and neighbor are connected:
+               PASS
+
+            Evaluate equation r * D^2 * sqrt(M/m):
+               r - rank of the point in neighbor's POV
+               D - distance from the point to the neighbor of rank r
+               M - how many neighbors the point has in the subtree limited by rank R
+               m - how many neighbors the targeted neigbor has in it's subtree lmited by rank r
+            IF optimal < equation:
+               optimal = equation
+               MEMORIZE Edge = (point, neighbor, D^2)
+
+      Add Edge to the tree
+
+
+.. code:: 
+   Label clusters: Every datapoint has it's cluster label.
+
+   INIT Limits(energies) of points to 0.
+   
+   FOR every edge(pair, weight) from the MST(in order of appearing):
+      
+      FOR Left and Right subtrees:
+         Evaluate border equation K * D^2 * sqrt(min(N,N')):
+            K - number of clusters in that subtree
+            D^2 - weight of the edge
+            N and N' - amount of points in subtrees
+         IF border >= limit:
+            That subtree is a cluster
+            It's limit = N * D^2
+      
+      Merge subtrees 
+      Add limits
+      Add number of clusters
+      Add number of points
+
 
 Реализация на питоне
 ####################
