@@ -212,7 +212,7 @@ def druhg(X, max_ranking=16,
 
     pairs, values = ur.get_tree()
 
-    labels = label(pairs, values, size, exclude=exclude, limit1=int(limit1), limit2=int(limit2), fix_outliers=fix_outliers)
+    labels = label(pairs, values, size, exclude=exclude, limit1=int(limit1), limit2=int(limit2), fix_outliers=fix_outliers, **kwargs)
 
     return (labels,
             pairs, values
@@ -302,7 +302,7 @@ class DRUHG(BaseEstimator, ClusterMixin):
         print ('todo: not done yet')
         return None
 
-    def relabel(self, exclude=None, limit1=None, limit2=None, fix_outliers=None):
+    def relabel(self, exclude=None, limit1=None, limit2=None, fix_outliers=None,  **kwargs):
         """Relabeling with the limits on cluster size.
 
         Parameters
@@ -350,7 +350,7 @@ class DRUHG(BaseEstimator, ClusterMixin):
 
         if printout:
             print ('Relabeling using defaults for: ' + printout)
-        self.labels_ = label(self.mst_, self.values_, self._size, exclude, int(limit1), int(limit2), fix_outliers)
+        self.labels_ = label(self.mst_, self.values_, self._size, exclude, int(limit1), int(limit2), fix_outliers, **kwargs)
         return self.labels_
 
     @property
