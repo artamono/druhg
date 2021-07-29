@@ -43,28 +43,32 @@ cdef class Amalgamation (object):
         self.clusters = clusters
 
     cdef void _amalgamate(self, np.intp_t size, np.double_t energy, np.intp_t clusters):
-        # self.energy += energy
-        self.energy = merge_means(self.clusters, self.energy, clusters, energy) # храним среднее для лучшей точности
+        # self.energy += energy # no merge_means
+        self.energy = merge_means(self.size, self.energy, size, energy) # храним среднее для лучшей точности
         self.size += size
         self.clusters += clusters
 
-    cdef np.double_t border_overcoming(self, np.double_t g, Amalgamation other):
-        # returns negative if clusterization didn't happen
+    cdef np.double_t border_overcoming(self, np.double_t g, Amalgamation other, np.double_t PRECISION):
+        # returns negative if cluster didn't form
         # limit_to_ought:
         # Die Schranke und das Sollen
         # can a new whole overcome its' parts?
         cdef np.double_t limit, jump
 
-        limit = g * pow(1.*min(self.size, other.size), 0.5)
-
-        # limit *= self.clusters # No need of multiplying when working with merge means
+        # limit = g * self.clusters * pow(1.*self.size*other.size/(1.*self.size + other.size), 0.5) # no merge_means
+        # limit = g * self.clusters * pow(1.*min(self.size,other.size), 0.5) # this works too
         #* pow((1.*self.clusters + other.clusters)/max(self.clusters, other.clusters), +0.25) - this is an interesting idea, maybe it will help us in the future
 
+        # this acts as min(a,b) with equal numbers. If one of the args is 1 it returns ~1.
+        limit = g * self.clusters * pow(1.*other.size/((1.*self.size + other.size)*self.size), 0.5) # div self.size for merge_means
+
         jump = -1.
-        if limit >= self.energy:
-            jump = g * self.size
+        if limit > self.energy + PRECISION:
+            # jump = g * self.size # no merge_means
+            jump = g # for merge_means storing the average
+
         # if self.size > 1 or other.size==1:
-        #     print (min(self.size, other.size) > 1, other.size, brd.limit > self.energy, self.size, self.clusters, 'dis', brd.dis, 'lim', brd.limit, self.energy )
+        #     print (min(self.size, other.size) > 1, other.size, limit > self.energy, self.size, self.clusters, 'dis', g, 'lim', limit, self.energy )
         return jump
 
     cdef Amalgamation merge_amalgamations(self, np.double_t g, Amalgamation other, np.double_t jump1, np.double_t jump2):
