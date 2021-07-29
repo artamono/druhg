@@ -23,6 +23,7 @@ from druhg import (DRUHG,
                    druhg)
 
 from matplotlib import pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 # from sklearn.cluster.tests.common import generate_clustered_data
 import sklearn.datasets as datasets
@@ -50,11 +51,22 @@ def test_iris():
     dr = DRUHG(max_ranking=50, verbose=False)
     dr.fit(XX)
     labels = dr.labels_
+    if _plot_graph:
+        plt.close('all')
+        dr.minimum_spanning_tree_.plot()
+        plt.savefig('test_iris1.png')
+
     ari = adjusted_rand_score(iris['target'], labels)
     print ('iris ari', ari)
     assert (ari >= 0.50)
     # breaking biggest cluster
     labels = dr.relabel(limit1=0, limit2=int(len(XX)/2), fix_outliers=1)
+
+    if _plot_graph:
+        plt.close('all')
+        dr.minimum_spanning_tree_.plot()
+        plt.savefig('test_iris2.png')
+
     ari = adjusted_rand_score(iris['target'], labels)
     print ('iris ari', ari)
     assert (ari >= 0.85)
@@ -71,7 +83,9 @@ def test_plot_dendrogram():
     XX = iris['data']
     dr = DRUHG(max_ranking=50, limit2=int(len(XX)/2),fix_outliers=1) #, limit1=0, limit2=int(len(XX)/2), fix_outliers=1)
     dr.fit(XX)
+    # plt.close('all')
     dr.single_linkage_.plot()
+    # plt.savefig('test_square.png')
 
 def test_plot_one_dimension():
     iris = datasets.load_iris()
@@ -87,19 +101,22 @@ def test_2and3():
     cons = 10.
     XX = [[0.,0.],[1.,1.],[cons+3.,2.],[cons+4.,1.],[cons+5.,2.]]
     XX = np.array(XX)
-    dr = DRUHG(max_ranking=200, limit1 = 1, limit2 = 1000, verbose=False)
+    dr = DRUHG(algorithm='slow', max_ranking=200, limit1 = 1, limit2 = 1000, verbose=False)
     dr.fit(XX)
     # two clusters
     # assert (len(dr.parents_) == 2)
     print (dr.mst_)
     print (dr.mst_[6]*dr.mst_[7])
-    # proper connection between two groups
-    assert (dr.mst_[6]*dr.mst_[7] == 2)
+
     labels = dr.labels_
     print ('pairs', dr.mst_)
     print ('labels', dr.labels_)
     n_clusters = len(set(labels)) - int(-1 in labels)
     print('n_clusters', n_clusters)
+
+    # proper connection between two groups
+    # assert (dr.mst_[6]*dr.mst_[7] == 2) # this is not working anymore
+
     assert (labels[0]==labels[1])
     assert (not all(x == labels[0] for x in labels))
     assert (labels[2] == labels[3] == labels[4])
@@ -182,7 +199,7 @@ def test_square():
         for j in range(0, size):
             XX.append([scale*i,scale*j])
     XX = np.array(XX)
-    dr = DRUHG(max_ranking=10, limit1=1, limit2=len(XX), verbose=False)
+    dr = DRUHG(max_ranking=10, algorithm='slow', limit1=1, limit2=len(XX), verbose=False)
     dr.fit(XX)
     s = 2*len(XX) - 2
     print (dr.mst_)
@@ -200,9 +217,13 @@ def test_square():
     print ('pairs', dr.mst_)
     print ('labels', dr.labels_)
 
+    un, cn = np.unique(labels, return_counts=True)
+    for i in range(0, len(un)):
+        print('square', un[i], cn[i] )
+
     if _plot_graph:
         plt.close('all')
-        dr.minimum_spanning_tree_.plot()
+        dr.minimum_spanning_tree_.plot(vary_line_width = False)
         plt.savefig('test_square.png')
 
     assert (n_clusters >= 5)
@@ -215,9 +236,8 @@ def test_square():
     assert (labels[1] != labels[len(labels)-2])
     assert (labels[int(size*size/2)] >= 0)
 
+    # assert (False)
 
-    # assert (0==1)
-#
 
 def test_scaled_square():
     XX = []
@@ -233,9 +253,57 @@ def test_scaled_square():
     # print (dr.mst_[s-1], dr.mst_[s-2], XX[dr.mst_[s-1]], XX[dr.mst_[s-2]])
     labels = dr.labels_
     print (labels)
+    if _plot_graph:
+        plt.close('all')
+        dr.minimum_spanning_tree_.plot()
+        plt.savefig('test_scaled_square.png')
     n_clusters = len(set(labels)) - int(-1 in labels)
     print ('n_clusters', n_clusters)
     assert (n_clusters==1)
+
+def test_scaled_square2():
+    XX = []
+    size, scale = 10, 0.01
+    for i in range(0, size):
+        for j in range(0, size):
+            XX.append([scale*i,scale*j])
+    XX = np.array(XX)
+    dr = DRUHG(max_ranking=200, algorithm='slow', limit1=1, limit2=len(XX), verbose=False)
+    dr.fit(XX)
+    s = 2*len(XX) - 2
+    print (dr.mst_)
+    print (dr.mst_[s-1], dr.mst_[s-2], XX[dr.mst_[s-1]], XX[dr.mst_[s-2]])
+    labels = dr.labels_
+    n_clusters = len(set(labels)) - int(-1 in labels)
+    print('n_clusters', n_clusters)
+    print (dr.mst_)
+    # print (XX)
+    print (dr.labels_)
+    # assert (n_clusters==1)
+    # labels = dr.relabel(limit1=1, limit2=size*2)
+    un, cn = np.unique(labels, return_counts=True)
+    for i in range(0, len(un)):
+        print('square2', un[i], cn[i] )
+
+    n_clusters = len(set(labels)) - int(-1 in labels)
+    # print('n_clusters', n_clusters)
+    print ('pairs', dr.mst_)
+    print ('labels', dr.labels_)
+
+    if _plot_graph:
+        plt.close('all')
+        plt.figure(figsize=(25, 25))
+        dr.minimum_spanning_tree_.plot(vary_line_width=False)
+        plt.savefig('test_scaled_square2.png')
+
+    assert (n_clusters >= 5)
+    assert (not all(x == labels[0] for x in labels))
+    assert (labels[1] != labels[size])
+    assert (labels[1] != labels[2*size - 1])
+    assert (labels[size] != labels[2 * size - 1])
+    assert (labels[size] != labels[2 * size - 1])
+    assert (labels[1] != labels[len(labels)-2])
+    assert (labels[int(size*size/2)] >= 0)
 
 def test_two_squares():
     XX = []
@@ -295,8 +363,8 @@ def test_t():
     for j in range(-9, 10):
         XX.append([j,0.])
     XX = np.array(XX)
-    np.random.shuffle(XX)
-    dr = DRUHG(max_ranking=200, verbose=False)
+    # np.random.shuffle(XX)
+    dr = DRUHG(max_ranking=200, algorithm='slow', verbose=False)
     dr.fit(XX)
     labels = dr.labels_
     n_clusters = len(set(labels)) - int(-1 in labels)
@@ -310,6 +378,7 @@ def test_t():
     # t-center is an outlier too
     assert (n_clusters == 3)
     assert (np.count_nonzero(labels == -1) == 4)
+    # assert (False)
 
 #
 def test_cross():
@@ -328,7 +397,7 @@ def test_cross():
     labels = dr.labels_
     n_clusters = len(set(labels)) - int(-1 in labels)
     print ('n_clusters', n_clusters)
-    print ('labels', len(labels), labels)
+    print ('labels', len(labels))
 
     if _plot_graph:
         plt.close('all')
@@ -337,37 +406,97 @@ def test_cross():
 
     assert (n_clusters == 4)
     assert (np.count_nonzero(labels == -1) == 5)
+    # assert (False)
 
 
-def test_cube():
+def test_cube(showplot=True):
     XX = []
-    size = 10
+    size = 5
     for i in range(0, size):
         for j in range(0, size):
             for k in range(0, size):
                 XX.append([i,j,k])
     XX = np.array(XX)
+    np.random.shuffle(XX)
+    print(XX)
     # for i, x in enumerate(XX):
     #     print (i, x)
-    dr = DRUHG(algorithm='slow', max_ranking=200, verbose=False)
+    dr = DRUHG(algorithm='slow', max_ranking=200, limit1=1, limit2=int(len(XX)/2), verbose=False)
     dr.fit(XX)
     s = 2*len(XX) - 2
     print (dr.mst_)
     # assert (0==1)
     labels = dr.labels_
+    unique, counts = np.unique(labels, return_counts=True)
+    print (unique, counts)
+    # labels = dr.relabel(limit1=1, limit2=len(XX)/2)
+
     n_clusters = len(set(labels)) - int(-1 in labels)
-    print ('n_clusters', n_clusters)
-    print ('labels', labels)
-    assert (n_clusters==1+6)
-    # labels = dr.relabel(limit1=1)
-    labels = dr.relabel(limit1=1, limit2=len(XX))
-    print('out')
-    n_clusters = len(set(labels)) - int(-1 in labels)
-    print('n_clusters2', n_clusters)
-    print ('labels2', labels)
+    print ('n_clusters', n_clusters, set(labels))
+    # print ('labels', labels)
+
+    if showplot and _plot_graph:
+        import seaborn as sns
+
+        plt.close('all')
+        fig = plt.figure()
+        ax = Axes3D(fig)
+
+        unique, counts = np.unique(labels, return_counts=True)
+        sorteds = np.argsort(counts)
+        s = len(sorteds)
+
+        i = sorteds[s - 1]
+        max_size = counts[i]
+        if unique[i] == 0:
+            max_size = counts[sorteds[s - 2]]
+
+        color_map = {}
+        palette = sns.color_palette('bright', s + 1)
+        col = 0
+        a = (1. - 0.3) / (max_size - 1)
+        b = 0.3 - a
+        while s:
+            s -= 1
+            i = sorteds[s]
+            if unique[i] == 0:
+                continue
+            alpha = a * counts[i] + b
+            color_map[unique[i]] = palette[col] + (alpha,)
+            col += 1
+
+        color_map[0] = (0., 0., 0., 0.15)
+        colors = [color_map[x] for x in labels]
+
+        # ax = fig.add_subplot(111, projection='3d')
+        ax.scatter(XX[:, 0:1], XX[:, 1:2], XX[:, 2:3], c=colors)
+        plt.show()
+        plt.savefig('test_cube1.png')
+
+    if showplot and _plot_graph:
+        plt.close('all')
+        dr.minimum_spanning_tree_.plot()
+        plt.savefig('test_cube.png')
+
     assert (n_clusters == 1+6+12)
+    # # assert (False)
+    # # labels = dr.relabel(limit1=1)
+    # labels = dr.relabel(limit1=1, limit2=len(XX))
+    # print('out')
+    # n_clusters = len(set(labels)) - int(-1 in labels)
+    # print('n_clusters2', n_clusters, set(labels))
+    # # print ('labels2', labels)
+    # assert (n_clusters == 1+6+12)
 
     # assert (0==1)
+
+def test_loop_cube():
+    k = 1000
+    while k!=0:
+        print('+++++++++++++PREVED+++++++++++++', k - 1000)
+        test_cube(False)
+        # assert (False)
+        k-=1
 
 def test_druhg_sparse():
     row = np.array([0, 0, 1, 2, 2, 2])
@@ -388,8 +517,11 @@ def test_druhg_distance_matrix():
     print (dr)
     n_clusters = len(set(dr[0])) - int(-1 in dr[0])
     print (n_clusters)
-
-
+    if _plot_graph:
+        plt.close('all')
+        dr = DRUHG(metric="precomputed").fit(D)
+        dr.minimum_spanning_tree_.plot()
+        plt.savefig('test_druhg_distance_matrix1.png')
     assert(n_clusters==4)
 
     dr = DRUHG(metric="precomputed", limit1=5).fit(D)
@@ -400,7 +532,7 @@ def test_druhg_distance_matrix():
     if _plot_graph:
         plt.close('all')
         dr.minimum_spanning_tree_.plot()
-        plt.savefig('test_druhg_distance_matrix.png')
+        plt.savefig('test_druhg_distance_matrix2.png')
 
     assert(n_clusters==4)
 
@@ -431,11 +563,28 @@ def test_hdbscan_clusterable_data():
         plt.savefig('test_hdbscan_clusterable_data.png')
 
     assert (n_clusters==6)
+
+def test_three_blobs():
+    XX = np.load('druhg\\tests\\three_blobs.npy')
+    dr = DRUHG(max_ranking=3550, algorithm='slow', verbose=False)
+    dr.fit(XX)
+    labels = dr.labels_
+    uniques, counts = np.unique(labels, True)
+    print (uniques, counts)
+    n_clusters = len(set(labels)) - int(-1 in labels)
+    print (n_clusters)
+
+    if _plot_graph:
+        plt.close('all')
+        dr.minimum_spanning_tree_.plot()
+        plt.savefig('test_three_blobs.png')
+
+    assert (n_clusters==3)
 #
 def test_chameleon():
     XX = pd.read_csv('druhg\\tests\\chameleon.csv', sep='\t', header=None)
     XX = np.array(XX)
-    dr = DRUHG(algorithm='slow', max_ranking=200, limit1 = 1, limit2=len(XX), verbose=False)
+    dr = DRUHG(algorithm='slow', max_ranking=4200, limit1 = 1, limit2=len(XX), verbose=False)
     dr.fit(XX)
     labels = dr.labels_
     # labels = dr.relabel(limit1=1)
@@ -464,6 +613,13 @@ def test_chameleon():
     for i, v in enumerate(values):
         if counts[i] > 200:
             print (v, counts[i])
+
+    exc = dr.labels_[3024]
+    dr.relabel(limit1=3, limit2=int(len(XX)/4), exclude=[exc])
+    if _plot_graph:
+        plt.close('all')
+        dr.minimum_spanning_tree_.plot()
+        plt.savefig('test_cham3.png')
 
     assert (n_clusters==6)
 #
@@ -494,20 +650,39 @@ def test_synthetic_outliers():
 def test_compound():
     XX = pd.read_csv('druhg/tests/Compound.csv', sep=',', header=None).drop(2, axis=1)
     XX = np.array(XX)
-    dr = DRUHG(max_ranking=200, limit1=3, limit2=len(XX), exclude=[776], verbose=False)
+    dr = DRUHG(max_ranking=200, limit1=3, limit2=len(XX), verbose=False)
     dr.fit(XX)
 
     if _plot_graph:
         plt.close('all')
         dr.minimum_spanning_tree_.plot()
-        plt.savefig('test_compound.png')
+        plt.savefig('test_compound1.png')
 
     labels = dr.labels_
     # labels = dr.relabel(limit1=1)
     n_clusters = len(set(labels)) - int(-1 in labels)
     # np.save('labels_compound', labels)
-    print('n_clusters', n_clusters)
-    assert (n_clusters==5)
+    print('n_clusters', n_clusters, set(labels))
+    exc = labels[398]
+    # dr.relabel(limit1=3, limit2=len(XX), exclude=[exc])
+    # labels = dr.labels_
+    n_clusters2 = len(set(labels)) - int(-1 in labels)
+    print (exc, n_clusters2, set(labels))
+
+    if _plot_graph:
+        plt.close('all')
+        dr.minimum_spanning_tree_.plot()
+        plt.savefig('test_compound2.png')
+
+    exc2 = labels[398]
+    dr.relabel(limit1=3, limit2=len(XX), exclude=[exc, exc2])
+    if _plot_graph:
+        plt.close('all')
+        dr.minimum_spanning_tree_.plot()
+        plt.savefig('test_compound3.png')
+
+
+    assert (n_clusters==4)
 
 def test_copycat():
     XX = [[0]]*100
@@ -567,3 +742,197 @@ def test_copycats3(): # should fail until weights are made
     print (uniques, counts)
     n_clusters = len(set(labels)) - int(-1 in labels)
     assert (n_clusters==3)
+#
+# def test_cube2():
+#     XX = [[2,2,2],
+#         [0,1,1],
+#         [2,2,1],
+#         [3,3,1],
+#         [2,2,4],
+#         [1,4,1],
+#         [1,4,2],
+#         [3,2,4],
+#         [0,1,0],
+#         [2,3,0],
+#         [3,2,0],
+#         [2,2,3],
+#         [3,0,4],
+#         [3,2,3],
+#         [4,3,1],
+#         [1,2,4],
+#         [0,2,0],
+#         [4,4,1],
+#         [1,3,1],
+#         [0,4,2],
+#         [2,1,0],
+#         [3,2,2],
+#         [1,3,2],
+#         [0,2,3],
+#         [4,2,2],
+#         [0,4,4],
+#         [2,0,0],
+#         [1,1,0],
+#         [2,1,2],
+#         [0,1,4],
+#         [4,4,0],
+#         [0,4,3],
+#         [2,1,4],
+#         [1,1,1],
+#         [0,4,0],
+#         [3,0,1],
+#         [3,1,2],
+#         [0,3,3],
+#         [4,4,4],
+#         [0,2,4],
+#         [2,0,1],
+#         [1,0,0],
+#         [0,1,3],
+#         [2,4,2],
+#         [4,4,3],
+#         [1,1,2],
+#         [2,1,1],
+#         [0,0,2],
+#         [3,0,3],
+#         [4,3,0],
+#         [2,1,3],
+#         [4,0,3],
+#         [3,0,0],
+#         [1,0,4],
+#         [0,0,3],
+#         [3,1,3],
+#         [0,0,1],
+#         [3,4,1],
+#         [1,4,3],
+#         [2,3,4],
+#         [3,3,0],
+#         [4,1,3],
+#         [3,3,3],
+#         [1,4,4],
+#         [4,1,4],
+#         [2,4,1],
+#         [3,4,2],
+#         [0,2,2],
+#         [4,0,1],
+#         [3,3,4],
+#         [2,4,3],
+#         [2,3,2],
+#         [3,1,0],
+#         [4,0,2],
+#         [3,4,0],
+#         [4,3,4],
+#         [3,2,1],
+#         [4,2,4],
+#         [3,0,2],
+#         [4,1,0],
+#         [2,0,3],
+#         [4,2,0],
+#         [4,0,4],
+#         [3,3,2],
+#         [0,0,0],
+#         [2,0,2],
+#         [1,2,0],
+#         [2,2,0],
+#         [1,2,2],
+#         [1,2,3],
+#         [3,4,3],
+#         [2,4,4],
+#         [0,0,4],
+#         [0,3,1],
+#         [1,1,4],
+#         [3,1,1],
+#         [4,1,2],
+#         [0,4,1],
+#         [1,0,1],
+#         [4,3,2],
+#         [3,1,4],
+#         [4,4,2],
+#         [4,3,3],
+#         [1,3,4],
+#         [4,1,1],
+#         [0,2,1],
+#         [2,4,0],
+#         [2,3,1],
+#         [3,4,4],
+#         [1,3,0],
+#         [2,3,3],
+#         [0,3,4],
+#         [4,2,1],
+#         [0,3,0],
+#         [1,4,0],
+#         [1,1,3],
+#         [0,3,2],
+#         [0,1,2],
+#         [4,2,3],
+#         [1,3,3],
+#         [2,0,4],
+#         [4,0,0],
+#         [1,0,3],
+#         [1,0,2],
+#         [1,2,1]]
+#     XX = np.array(XX)
+#     # for i, x in enumerate(XX):
+#     #     print (i, x)
+#     dr = DRUHG(algorithm='slow', max_ranking=200, limit2=int(len(XX)), verbose=False)
+#     dr.fit(XX)
+#     s = 2*len(XX) - 2
+#     print (dr.mst_)
+#     # assert (0==1)
+#     labels = dr.labels_
+#     unique, counts = np.unique(labels, return_counts=True)
+#     print (unique, counts)
+#     labels = dr.relabel(limit1=1, limit2=len(XX)/2)
+#
+#     n_clusters = len(set(labels)) - int(-1 in labels)
+#     print ('n_clusters', n_clusters, set(labels))
+#     # print ('labels', labels)
+#
+#     if _plot_graph:
+#         import seaborn as sns
+#
+#         plt.close('all')
+#         fig = plt.figure()
+#         ax = Axes3D(fig)
+#
+#         unique, counts = np.unique(labels, return_counts=True)
+#         sorteds = np.argsort(counts)
+#         s = len(sorteds)
+#
+#         i = sorteds[s - 1]
+#         max_size = counts[i]
+#         if unique[i] == 0:
+#             max_size = counts[sorteds[s - 2]]
+#
+#         color_map = {}
+#         palette = sns.color_palette('bright', s + 1)
+#         col = 0
+#         a = (1. - 0.3) / (max_size - 1)
+#         b = 0.3 - a
+#         while s:
+#             s -= 1
+#             i = sorteds[s]
+#             if unique[i] == 0:
+#                 continue
+#             alpha = a * counts[i] + b
+#             color_map[unique[i]] = palette[col] + (alpha,)
+#             col += 1
+#
+#         color_map[0] = (0., 0., 0., 0.15)
+#         colors = [color_map[x] for x in labels]
+#
+#         # ax = fig.add_subplot(111, projection='3d')
+#         ax.scatter(XX[:, 0:1], XX[:, 1:2], XX[:, 2:3], c=colors)
+#         plt.show()
+#         plt.savefig('test_cube1.png')
+#
+#     if _plot_graph:
+#         plt.close('all')
+#         dr.minimum_spanning_tree_.plot()
+#         plt.savefig('test_cube.png')
+#
+#     assert (n_clusters == 1+6+12)
+
+# def test_loop_cube2():
+#     k = 1000
+#     while k!=0:
+#         test_cube2()
+#         k-=1

@@ -155,7 +155,7 @@ cdef void fixem(np.ndarray edges_arr, np.intp_t num_edges, np.ndarray result):
 
     return
 
-cdef set emerge_clusters(UnionFind U, np.ndarray edges_arr, np.ndarray values_arr, np.intp_t limit1, np.intp_t limit2, list exclude):
+def emerge_clusters(UnionFind U, np.ndarray edges_arr, np.ndarray values_arr, np.intp_t limit1, np.intp_t limit2, list exclude, **kwargs):
 
     cdef:
         np.intp_t e1,e2,e3, p1,p2, i, c
@@ -165,6 +165,9 @@ cdef set emerge_clusters(UnionFind U, np.ndarray edges_arr, np.ndarray values_ar
         list disc
         dict d
         set clusters
+        np.double_t PRECISION
+
+    PRECISION = kwargs.get('double_precision2', kwargs.get('double_precision', 0.0000001)) # this is only relevant if distances between datapoints are super small
 
     being = Amalgamation()
     being1 = being
@@ -184,8 +187,8 @@ cdef set emerge_clusters(UnionFind U, np.ndarray edges_arr, np.ndarray values_ar
         if U.has_parent(e2):
             being2 = d.pop(p2)
 
-        jump1 = being1.border_overcoming(v, being2)
-        jump2 = being2.border_overcoming(v, being1)
+        jump1 = being1.border_overcoming(v, being2, PRECISION)
+        jump2 = being2.border_overcoming(v, being1, PRECISION)
 
         if being1.size > 1 \
             and jump1 >= 0 \

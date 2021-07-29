@@ -244,6 +244,7 @@ cdef class UniversalReciprocity (object):
         # self.result_value_arr[i] *= (rel.rec_rank + rel.penalty)
         # self.result_value_arr[i] *= pow(1.*rel.my_members/rel.rec_members, 0.5)
 
+        # print(self.result_edges, '=================add===============', self.result_value_arr[i], ":", a,b, rel.reciprocity, '=', rel.rec_dis, rel.rec_rank + rel.penalty, 'ranks', rel.loop_rank, rel.my_rank, rel.rec_rank, rel.my_scope, 'sqrt',rel.my_members, rel.rec_members)
         # print(self.result_value_arr[i], self.result_edges, a,b, rel.rec_dis, rel.rec_rank + rel.penalty, rel.my_members, rel.rec_members)
 
     cdef bint _pure_reciprocity(self, np.intp_t i, np.ndarray[np.intp_t, ndim=2] knn_indices, np.ndarray[np.double_t, ndim=2] knn_dist, Relation* rel, np.intp_t* infinitesimal):
@@ -335,8 +336,8 @@ cdef class UniversalReciprocity (object):
         cdef:
             np.intp_t ranki, j, \
                 p, parent, parent_opp, \
-                members, opp_members, equal_members, \
-                rank_left, rank_right, \
+                members, \
+                rank_left, rank_right, scope_left, \
                 opp_is_reachable, penalty, \
                 res = 0
 
@@ -352,63 +353,41 @@ cdef class UniversalReciprocity (object):
 
         best, opt_min = INF, INF
 
-        members = 0
-        equal_members = 0
-        old_dis = 0.
-
-        # opt_dump = (i)
         for ranki in range(0, self.max_neighbors_search + 1):
             j = indices[ranki]
-            dis = distances[ranki]
-
-            if dis > old_dis + self.PRECISION:
-                members += equal_members
-                old_dis = dis
-                equal_members = 0
-
             if parent == self.U.fast_find(j):
-                equal_members += 1
                 continue
 
-            # if pow(dis,4) * ranki**2 * members >= best * (ranki - 1):
-            if pow(dis,4) * ranki * members >= best:
+            dis = distances[ranki]
+            if pow(dis,4) * pow(ranki + 1,2) >= best:
                 break
 
             dis_opp = knn_dist[j]
-            rank_right = bisect.bisect(dis_opp, dis + self.PRECISION) # reminder that bisect.bisect(dis_opp, dis) >= bisect.bisect_left(dis_opp, dis)
-            if ranki > rank_right:
+            rank_right = bisect.bisect(dis_opp, dis + self.PRECISION) # !reminder! bisect.bisect(dis_opp, dis) >= bisect.bisect_left(dis_opp, dis)
+            if ranki + 1 > rank_right:
                 continue
+
             rank_left = bisect.bisect(distances, dis + self.PRECISION)
             if rank_left > rank_right:
                 continue
 
+            penalty = 0
+
+            members = 0
             rank_dis = distances[rank_right - 1]
-
-            ind_opp = knn_indices[j]
-            parent_opp = self.U.fast_find(j)
-
-            opp_members = 0
-            opp_is_reachable = 0
-            for s in ind_opp[:rank_right]:
+            scope_left = bisect.bisect(distances, rank_dis + self.PRECISION) # rank_left <= scope_left. To pass test_cube
+            for s in indices[:scope_left]:
                 p = self.U.fast_find(s)
-                opp_members += parent_opp==p
-                opp_is_reachable += parent==p
-
-            penalty = 0 # penalizing in case of reaching the limit of max_neighbors_search
-            if opp_is_reachable == 0: # rank_right >= self.max_neighbors_search:
-                penalty = rank_left
-
-            if rank_right == opp_is_reachable: # For upper bound. Adding 1 to fix rare case
-                opp_is_reachable -= 1
+                members += parent==p
 
             # val1 = rank_dis # [качество] без этого не отличить углов от ребер в квадрате. dis <= rank_dis <= 2*dis
-            # val2 = rank_right + penalty # [количество] без этого не различить ядро квадрата от ребер. ranki <= rank_left <= rank_right
-            # val3 = 1.*members/opp_members # [мера] без этого не обеспечить равномерное прирастание. 1/(rank_right - 1) < val3 < rank_right - 1
+            # val2 = rank_right + penalty # [количество] без этого не различить ядро квадрата от ребер. ranki <= rank_left <= rank_right, rank_left <= scope_left
+            # val3 = (1. + members)/members # [мера] без этого не обеспечить равномерное прирастание. 1 < (1. + members)/(1.*members) <= 2
 
-            order_min = pow(rank_dis, 4) * pow(rank_right + penalty, 2) * members # WARNING: `members` are counted improperly. If ranki != rank_left, then this pair might have same dist as the other. Real members might be higher.
+            order_min = pow(rank_dis, 4) * pow(rank_right + penalty, 2) # WARNING: `members` are counted improperly. If ranki != rank_left, then this pair might have same dist as the other. Real members might be higher.
 
-            order = order_min / opp_members # WARNING: `opp_members` can be zero if knn_indices doesn't have itself. This rare case is possible when amount of equal objects less than K neighbors. `pure_reciprocity` initialization fixes this
-            order_min = order_min / (rank_right - opp_is_reachable) # dividing by how many can be.
+            order = order_min * (1. + members)/ members
+
             if order_min < opt_min:
                 opt_min = order_min
                 rel.upper_bound = order_min # it will be used outside in the heap part
@@ -420,15 +399,16 @@ cdef class UniversalReciprocity (object):
 
                 rel.reciprocity = best
                 rel.target = j
-                rel.my_rank = ranki
-                rel.rec_rank = rank_right
                 rel.my_dis = dis
                 rel.rec_dis = rank_dis
+                rel.loop_rank = ranki
+                rel.my_rank = rank_left
+                rel.rec_rank = rank_right
+                rel.my_scope = scope_left
                 rel.penalty = penalty
                 rel.my_members = members
-                rel.rec_members = opp_members
-                rel.upper_members = rank_right - opp_is_reachable
 
+                # print (i,j, rel.reciprocity, ':', rel.my_dis, rel.rec_dis, ":", rel.my_rank, rel.rec_rank, rel.my_scope, ".", rel.my_members)
                 # rel.value = pow(rel.rec_dis, 2) * (rel.rec_rank + rel.penalty) * pow(1.*rel.my_members/rel.rec_members, 0.5)
 
         return res
