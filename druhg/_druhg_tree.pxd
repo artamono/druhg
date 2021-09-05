@@ -11,7 +11,7 @@ cdef struct Relation:
     np.intp_t my_scope
     np.double_t my_dis
     np.double_t rec_dis
-    np.intp_t penalty
+    # np.intp_t penalty
     np.intp_t my_members
     np.intp_t rec_members
     np.intp_t loop_rank

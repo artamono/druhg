@@ -201,14 +201,19 @@ def druhg(X, max_ranking=16,
             tree = KDTree(X, metric=metric, leaf_size=leaf_size, **kwargs)
             # raise TypeError('Unknown algorithm type %s specified' % algorithm)
 
-    is_slow_and_deterministic = 0
-    if "slow" in algorithm.lower():
-        is_slow_and_deterministic = 1
+    is_deterministic, is_slow  = 0, 0
+
+    if "slow+" in algorithm.lower() or "deterministic+" in algorithm.lower():
+        is_deterministic = 1
+    elif "slow" in algorithm.lower() or "deterministic" in algorithm.lower():
+        is_deterministic, is_slow = 1, 1
+    elif "fastminus" in algorithm.lower():
+        is_slow = 1
 
     if printout:
         print ('Druhg is using defaults for: ' + printout)
 
-    ur = UniversalReciprocity(algo_code, tree, max_neighbors_search = max_ranking, metric = metric, leaf_size = leaf_size//3, is_slow = is_slow_and_deterministic, n_jobs = core_n_jobs, **kwargs)
+    ur = UniversalReciprocity(algo_code, tree, max_neighbors_search = max_ranking, metric = metric, leaf_size = leaf_size//3, n_jobs = core_n_jobs , is_deterministic=is_deterministic, is_slow = is_slow, **kwargs)
 
     pairs, values = ur.get_tree()
 
