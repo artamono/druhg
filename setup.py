@@ -46,7 +46,7 @@ def requirements():
 
 configuration = {
     'name': 'druhg',
-    'version': '1.2.0',
+    'version': '1.2.1',
     'description': 'Universal clustering based on dialectical materialism',
     'long_description': readme(),
     'classifiers': [
@@ -65,7 +65,7 @@ configuration = {
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.4',
     ],
-    'keywords': 'cluster clustering density hierarchical',
+    'keywords': 'cluster clustering density dialectics',
     'url': 'https://github.com/artamono/druhg',
     'maintainer': 'Pavel "DRUHG" Artamonov',
     'maintainer_email': 'druhg.p@gmail.com',
