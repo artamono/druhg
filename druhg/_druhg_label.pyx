@@ -154,12 +154,12 @@ cdef void fixem(np.ndarray edges_arr, np.intp_t num_edges, np.ndarray result):
 
     return
 
-def emerge_clusters(UnionFind U, np.ndarray edges_arr, np.ndarray values_arr, np.intp_t limit1, np.intp_t limit2, list exclude, is_reciprocal=1, **kwargs):
+def emerge_clusters(UnionFind U, np.ndarray edges_arr, np.ndarray values_arr, np.intp_t limit1, np.intp_t limit2, \
+                    list exclude, is_reciprocal = 1, **kwargs):
 
     cdef:
         np.intp_t e1,e2,e3, p1,p2, i, c
         np.double_t v
-        tuple ext
 
         Amalgamation being, being1, being2, being3
         np.double_t jump1, jump2
@@ -178,10 +178,7 @@ def emerge_clusters(UnionFind U, np.ndarray edges_arr, np.ndarray values_arr, np
     d = {}
     clusters = set()
 
-    ext = (0,0,)
     for i, v in enumerate(values_arr):
-        # if extras:
-        #     ext = ( extras[0][i], extras[1][i],) # (rel.rec_rank, rel.my_members, rel.my_dis) from druhg_tree
         e1, e2 = edges_arr[2*i], edges_arr[2*i+1]
         # print ('edges', e1, e2)
         p1, p2 = U.passive_find(e1), U.passive_find(e2)
@@ -213,7 +210,7 @@ def emerge_clusters(UnionFind U, np.ndarray edges_arr, np.ndarray values_arr, np
             and p2 not in exclude:
             clusters.add(p2)
 
-        being3 = being1.merge_amalgamations(v, being2, jump1, jump2, 0)
+        being3 = being1.merge_amalgamations(v, being2, jump1, jump2)
 
         e3 = U.passive_union(U.passive_find(e1), U.passive_find(e2))
         # print(p1,p2,e3)
@@ -235,7 +232,7 @@ def emerge_clusters(UnionFind U, np.ndarray edges_arr, np.ndarray values_arr, np
 
 
 cpdef np.ndarray label(np.ndarray edges_arr, np.ndarray values_arr, int size = 0, list exclude = None, \
-                       np.intp_t limit1 = 0, np.intp_t limit2 = 0, np.intp_t fix_outliers = 1, is_reciprocal=1):
+                       np.intp_t limit1 = 0, np.intp_t limit2 = 0, np.intp_t fix_outliers = 1, is_reciprocal = 1):
     """Returns cluster labels.
     
     Uses the results of DRUHG MST-tree algorithm(edges and values).
