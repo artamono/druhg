@@ -13,7 +13,6 @@ import numpy as np
 cimport numpy as np
 import sys
 
-from collections import Counter
 from libc.math cimport fabs, pow
 
 cdef np.double_t merge_means(np.intp_t na, np.double_t meana,
