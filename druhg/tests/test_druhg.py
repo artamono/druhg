@@ -7,7 +7,7 @@ import pandas as pd
 from scipy.spatial import distance
 from scipy import sparse
 from scipy import stats
-import pytest
+import pytest  #delete __init__.py or it wont work
 
 # from sklearn.utils.estimator_checks import check_estimator
 # from sklearn.utils.testing import (assert_equal,
@@ -41,7 +41,7 @@ moons, _ = datasets.make_moons(n_samples=50, noise=0.05)
 blobs, _ = datasets.make_blobs(n_samples=50, centers=[(-0.75, 2.25), (1.0, 2.0)], cluster_std=0.25)
 X = np.vstack([moons, blobs])
 
-_plot_graph = 1
+_plot_graph = 0
 
 def test_iris(filename=None):
     if filename is None:
