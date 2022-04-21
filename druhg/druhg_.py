@@ -27,7 +27,7 @@ from .plots import MinimumSpanningTree, SingleLinkage
 
 
 def druhg(X, max_ranking=16,
-          limit1=None, limit2=None, exclude=None, fix_outliers=0,
+          limit1=None, limit2=None, exclude=None, fix_outliers=0, is_reciprocal=1,
           metric='minkowski', p=2,
           algorithm='best', leaf_size=40,
           verbose=False, core_n_jobs = None,  **kwargs):
@@ -60,6 +60,9 @@ def druhg(X, max_ranking=16,
 
     fix_outliers: int, optional (default=0)
         In case of 1 - all outliers will be assigned to the nearest cluster
+
+    is_reciprocal: int, optional (default=1)
+        In case of 0 - the formula turns upside down
 
     metric : string or callable, optional (default='minkowski')
         The metric to use when calculating distance between instances in a
@@ -201,23 +204,20 @@ def druhg(X, max_ranking=16,
             tree = KDTree(X, metric=metric, leaf_size=leaf_size, **kwargs)
             # raise TypeError('Unknown algorithm type %s specified' % algorithm)
 
-    is_deterministic, is_slow  = 0, 0
+    is_slow = 0
 
-    if "slow+" in algorithm.lower() or "deterministic+" in algorithm.lower():
-        is_deterministic = 1
-    elif "slow" in algorithm.lower() or "deterministic" in algorithm.lower():
-        is_deterministic, is_slow = 1, 1
-    elif "fastminus" in algorithm.lower():
+    if "slow" in algorithm.lower():
         is_slow = 1
 
     if printout:
         print ('Druhg is using defaults for: ' + printout)
 
-    ur = UniversalReciprocity(algo_code, tree, max_neighbors_search = max_ranking, metric = metric, leaf_size = leaf_size//3, n_jobs = core_n_jobs , is_deterministic=is_deterministic, is_slow = is_slow, **kwargs)
+    ur = UniversalReciprocity(algo_code, tree, max_neighbors_search = max_ranking, metric = metric, leaf_size = leaf_size//3, n_jobs = core_n_jobs , is_slow = is_slow, **kwargs)
 
     pairs, values = ur.get_tree()
 
-    labels = label(pairs, values, size, exclude=exclude, limit1=int(limit1), limit2=int(limit2), fix_outliers=fix_outliers, **kwargs)
+    # extras = ur.get_extras()
+    labels = label(pairs, values, size, exclude=exclude, limit1=int(limit1), limit2=int(limit2), fix_outliers=fix_outliers, is_reciprocal=is_reciprocal, **kwargs)
 
     return (labels,
             pairs, values
@@ -231,6 +231,7 @@ class DRUHG(BaseEstimator, ClusterMixin):
                  limit2=None,
                  exclude=None,
                  fix_outliers=0,
+                 is_reciprocal=1,
                  leaf_size=40,
                  verbose=False,
                  core_n_jobs = None,
@@ -240,6 +241,7 @@ class DRUHG(BaseEstimator, ClusterMixin):
         self.limit2 = limit2
         self.exclude = exclude
         self.fix_outliers = fix_outliers
+        self.is_reciprocal = is_reciprocal
         self.metric = metric
         self.algorithm = algorithm
         self.verbose = verbose
@@ -307,7 +309,7 @@ class DRUHG(BaseEstimator, ClusterMixin):
         print ('todo: not done yet')
         return None
 
-    def relabel(self, exclude=None, limit1=None, limit2=None, fix_outliers=None,  **kwargs):
+    def relabel(self, exclude=None, limit1=None, limit2=None, fix_outliers=None, is_reciprocal=None,  **kwargs):
         """Relabeling with the limits on cluster size.
 
         Parameters
@@ -322,6 +324,8 @@ class DRUHG(BaseEstimator, ClusterMixin):
             resulting clusters would be smaller than this limit.
 
         fix_outliers : glues outliers to the nearest clusters
+
+        is_reciprocal : reciprocal formula
 
         Returns
         -------
@@ -351,11 +355,15 @@ class DRUHG(BaseEstimator, ClusterMixin):
 
         if fix_outliers is None:
             fix_outliers = 0
-            printout += 'fix_outliers is set to ' + str(fix_outliers)
+            printout += 'fix_outliers is set to ' + str(fix_outliers)+ ', '
+
+        if is_reciprocal is None:
+            is_reciprocal = 1
+            printout += 'is_reciprocal is set to ' + str(is_reciprocal)+ ', '
 
         if printout:
             print ('Relabeling using defaults for: ' + printout)
-        self.labels_ = label(self.mst_, self.values_, self._size, exclude, int(limit1), int(limit2), fix_outliers, **kwargs)
+        self.labels_ = label(self.mst_, self.values_, self._size, exclude, int(limit1), int(limit2), fix_outliers, is_reciprocal, **kwargs)
         return self.labels_
 
     @property

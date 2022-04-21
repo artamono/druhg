@@ -76,7 +76,6 @@ class SingleLinkage(object):
             l[bb] = aa
             r[aa] = bb # linking
 
-
             aa = a
             while aa != l[aa]:
                 aa = l[aa]
@@ -157,6 +156,7 @@ class SingleLinkage(object):
         for a in (0, union_size):
             if l[a] == a: # can happened when some indices were not passed
                 continue
+
             aa = self.fast_find(uf, a)
             if aa in processed:
                 continue
@@ -166,6 +166,7 @@ class SingleLinkage(object):
                 aa = r[aa]
             while aa != l[aa]:
                 x_arr[aa] = x
+
                 x += step
                 aa = l[aa]
             x_arr[aa] = x
@@ -448,7 +449,7 @@ class MinimumSpanningTree(object):
 
         if vary_line_width:
             self.draw_druhg_edges(axis, self._mst_pairs, pos, edge_linewidth, edge_alpha)
-        else:
+        elif vary_line_width is not None:
             self.draw_simple_edges(axis, self._mst_pairs, pos, edge_linewidth, edge_alpha)
 
         # axis.set_xticks([])

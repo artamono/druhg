@@ -9,10 +9,10 @@
 DRUHG
 =====
 
-| DRUHG - Dialectical Ranking Universal Hierarchical Grouping (друг).
-| Performs clustering based on subjective rankings of each data point and builds a minimum spanning tree.
-| **Does not require parameters.** *(The real parameter is metric)*
-| To compensate for the inevitability of the result, the user can set the limits on the size of the cluster with ``limit1`` and ``limit2``.
+| DRUHG - Dialectical Reflection Universal Hierarchical Grouping (друг).
+| Performs clustering based on subjective densities and builds a minimum spanning tree.
+| **Does not require parameters.** *(The parameter is metric)*
+| The user can filter the size of the clusters with ``limit1`` and ``limit2``.
 | To get the genuine result and genuine outliers set ``limit1`` to 1 and ``limit2`` to sample size.
 | Parameter ``fix_outliers`` allows to label outliers to their closest clusters via mstree edges.
 
@@ -22,19 +22,20 @@ Basic Concept
 
 | There are some optional tuning parameters but the actual algorithm requires none and is universal.
 | It works by applying **the universal society rule: treat others how you want to be treated**.
-| The core of the algorithm is to rank the subject's closest subjective similarities and unite subjects into commonalities accordingly.
+| The core of the algorithm is to rank the subject's closest subjective similarities and amalgamate them accordingly.
 | Parameter ``max_ranking`` controls precision vs productivity balance, after some value the precision and the result would not change.
+| Parameter ``algorithm`` can be set to 'slow' to further enhance the precision.
 
-| Let's say you have a list of friends and your number one friend is John, but you are number 5 on his friend list, then you would treat him as your number 5 friend.
-| todo: insert picture
-| Clustering made by self-unrolling the relationships between the objects.
-| Process of merging subjects to commonalities goes until the whole tree is a commonality.
-| Commonalities that were merged against sizeable commonalities become clusters.
-| Subjects in order to be merged have to be mutually close to each other and have to have the closest relationship among everyone else.
-| They have to reflect from all others and each other, and then because of that become one.
-| The subject unveils it's potential energy only after he reflects of others.
-| Therefore *Cluster is a mutually-close reflections.*
+| The relationship of two objects sets two local densities, and distorts the distance between them.
+| That **dialectical distance** is the reflection - one objects adjusts it's density to fit it's counterpart.
+| This allows to arrange all of the relationships into minimal spanning tree.
+| Mutual closeness is preferential.
 
+| At the start, unconnected objects amalgamate into Universal and these contradictions define what amalgamation is the cluster.
+| The amalgamation has to reflect in the other to emerge as a cluster. The more sizeable adversary the more probable is the change.
+| After formation big cluster resists the outliers. This makes it a great algorithm for **outlier detection**.
+
+| *Cluster is a mutually-close reflections.*
 | To come up with this universal solution philosophy of dialectical materialism was used.
 | You can read more about it in this work. In Russian
 | (https://druhg.readthedocs.io/en/latest/dialectic_of_data.html)
@@ -83,7 +84,7 @@ It will relabel the clusters, by restricting their size.
 
 It will draw mstree with druhg-edges.
 
-.. image:: ./docs/source/pics/chameleon.jpg
+.. image:: https://raw.githubusercontent.com/artamono/druhg/master/docs/source/pics/chameleon.jpg
     :width: 300px
     :align: center
     :height: 200px
@@ -93,7 +94,7 @@ It will draw mstree with druhg-edges.
 Performance
 -----------
 | It can be slow on a highly structural data.
-| There is a parameters ``max_ranking`` that can be used decreased for a better performance.
+| There is a parameters ``max_ranking`` that can be used to decrease for a better performance.
 
 ----------
 Installing

@@ -13,8 +13,6 @@ import numpy as np
 cimport numpy as np
 import sys
 
-cdef np.double_t EPS = sys.float_info.min
-
 from libc.math cimport fabs, pow
 
 cdef np.double_t merge_means(np.intp_t na, np.double_t meana,
@@ -32,65 +30,106 @@ cdef np.double_t merge_means(np.intp_t na, np.double_t meana,
     # m2a = m2a + m2b + delta**2*na*nb/nx
     return delta
 
-
 cdef class Amalgamation (object):
     # declarations are in pxd file
     # https://cython.readthedocs.io/en/latest/src/userguide/sharing_declarations.html
 
-    def __init__(self, int size = 1, double energy = 0., int clusters = 1):
+    def __init__(self, int size = 1, int clusters = 1):
         self.size = size
-        self.energy = energy
         self.clusters = clusters
+        self.energies = None
 
-    cdef void _amalgamate(self, np.intp_t size, np.double_t energy, np.intp_t clusters):
-        # self.energy += energy # no merge_means
-        self.energy = merge_means(self.size, self.energy, size, energy) # храним среднее для лучшей точности
+    cdef void _amalgamate(self, np.intp_t size, np.intp_t clusters, dict o_energies):
         self.size += size
         self.clusters += clusters
+
+        energy = dict()
+        for elem in set(self.energies) | set(o_energies):
+            v1 = self.energies.get(elem, (0,0.,))
+            v2 = o_energies.get(elem, (0,0.,))
+            energy[elem] = (v1[0]+v2[0], v1[1]+v2[1],)
+
+        self.energies = energy
+
+    cdef Amalgamation merge_amalgamations(self, np.double_t g, Amalgamation other, np.double_t jump1, np.double_t jump2):
+        cdef:
+            np.intp_t osize, oclusters
+            Amalgamation ret
+        ret = self
+        if self.size == 1:
+            ret = Amalgamation() # the self will be reused
+# ----------------------
+        osize, oclusters, o_energies = other.size, other.clusters, other.energies
+# ----------------------
+        if jump1 >= 0:
+            ret.clusters = 1
+            ret.energies = {ret.size : (1., jump1,)}
+# ----------------------
+        if jump2 >= 0:
+            oclusters = 1
+            o_energies = {osize : (1., jump2,)}
+# ----------------------
+
+        ret._amalgamate(osize, oclusters, o_energies)
+        return ret
+
 
     cdef np.double_t border_overcoming(self, np.double_t g, Amalgamation other, np.double_t PRECISION):
         # returns negative if cluster didn't form
         # limit_to_ought:
         # Die Schranke und das Sollen
         # can a new whole overcome its' parts?
-        cdef np.double_t limit, jump
+        cdef np.double_t insides, limit
+        cdef np.double_t clusters, osize
+        cdef np.double_t n, c, e
 
-        # limit = g * self.clusters * pow(1.*self.size*other.size/(1.*self.size + other.size), 0.5) # no merge_means
-        # limit = g * self.clusters * pow(1.*min(self.size,other.size), 0.5) # this works too
-        #* pow((1.*self.clusters + other.clusters)/max(self.clusters, other.clusters), +0.25) - this is an interesting idea, maybe it will help us in the future
+        if self.energies is None:
+            return g # first connection always clusterize
 
-        # this acts as min(a,b) with equal numbers. If one of the args is 1 it returns ~1.
-        limit = g * self.clusters * pow(1.*other.size/((1.*self.size + other.size)*self.size), 0.5) # div self.size for merge_means
+        clusters = self.clusters - 1
+        osize = other.size
 
-        jump = -1.
-        if limit > self.energy + PRECISION:
-            # jump = g * self.size # no merge_means
-            jump = g # for merge_means storing the average
+        insides, limit = 0., 0.
+        for n in self.energies:
+            c,e = self.energies[n]
+            insides += n/min(n, clusters) * e
+            limit += min(n, osize)/n * c
+            # print (n, e, c, n/min(n, clusters) * e, min(n, osize)/n * c)
 
-        # if self.size > 1 or other.size==1:
-        #     print (min(self.size, other.size) > 1, other.size, limit > self.energy, self.size, self.clusters, 'dis', g, 'lim', limit, self.energy )
-        return jump
+        limit *= g-PRECISION
 
-    cdef Amalgamation merge_amalgamations(self, np.double_t g, Amalgamation other, np.double_t jump1, np.double_t jump2):
-        cdef:
-            np.intp_t osize, oclusters
-            np.double_t oenergy
-            Amalgamation ret
+        # print('..',g, 'c', clusters, other.clusters, 's', self.size, other.size, 'r', insides,  limit)
+        # print(list(self.energies))
+        # print (insides > limit,'=============================================')
 
-        ret = self
-        if self.size == 1:
-            ret = Amalgamation(1, 0., 1)
-# ----------------------
-        osize, oenergy, oclusters = other.size, other.energy, other.clusters
-# ----------------------
-        if jump1 >= 0:
-            ret.energy = jump1
-            ret.clusters = 1
-# ----------------------
-        if jump2 >= 0:
-            oenergy = jump2
-            oclusters = 1
-# ----------------------
+        if insides < limit:
+            return g
 
-        ret._amalgamate(osize, oenergy, oclusters)
-        return ret
+        return -1.
+
+    cdef np.double_t border_overcoming_rev(self, np.double_t g, Amalgamation other, np.double_t PRECISION):
+        # returns negative if cluster didn't form
+        # limit_to_ought:
+        # Die Schranke und das Sollen
+        # can a new whole overcome its' parts?
+        cdef np.double_t insides, limit
+        cdef np.double_t clusters, osize
+        cdef np.double_t n, c, e
+
+        if self.energies is None:
+            return pow(g, -1) # first connection always clusterize
+
+        clusters = self.clusters - 1
+        osize = other.size
+
+        insides, limit = 0., 0.
+        for n in self.energies:
+            c,e = self.energies[n]
+            insides += min(n, clusters)/n * e
+            limit += n/min(n, osize) * c
+
+        insides *= g-PRECISION
+        if insides > limit:
+            return pow(g, -1)
+
+        return -1.
