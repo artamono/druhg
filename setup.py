@@ -63,7 +63,7 @@ configuration = {
         'Operating System :: Unix',
         'Operating System :: MacOS',
         'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.8',
     ],
     'keywords': 'cluster clustering density dialectics',
     'url': 'https://github.com/artamono/druhg',
@@ -76,6 +76,7 @@ configuration = {
                     _druhg_amalgamation,
                     _druhg_label,
                     ],
+    'zip_safe': False,
     'cmdclass': {'build_ext': CustomBuildExtCommand},
     'tests_require': ['pytest'],
     'data_files': ('druhg/_druhg_amalgamation.pxd', 'druhg/_druhg_tree.pxd',)
